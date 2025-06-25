@@ -7,7 +7,7 @@ namespace ML.LinearClassification;
  *      v^t, x are in R^d.
  * 
  *  -> The goal is to find an equation, that "splits" d-dim space into 2 parts, that:
- *      -> all items that are marked +1 are on the one side and all with -1 are on the second side.
+ *      -> all items that are marked +1 are on the one side (where normal vector is positive) and all with -1 are on the second side.
  *
  * Basically we want to minimalize an error:
  *   (sum E(sign(v^t * x + v_o))) / n
