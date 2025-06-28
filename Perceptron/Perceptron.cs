@@ -1,55 +1,80 @@
 namespace ML.Perceptron;
 
-public class Perceptron
+public class DatasetItem<T>(List<T> features, int expected)
 {
-    public class DatasetItem(List<double> features, int expected)
-    {
-        public List<double> Features { get; set; } = features;
-        public int Expected { get; set; } = expected;
-    }
-    
+    public List<T> Features { get; set; } = features;
+    public int Expected { get; set; } = expected;
+}
+
+public class Perceptron<T>
+{
     /// <summary>
     /// Training dataset.
     /// </summary>
-    public List<DatasetItem> Dataset { get; init; }
+    public List<DatasetItem<T>> Dataset { get; init; }
     
     /// <summary>
     /// Weights of perceptron.
     /// </summary>
     public List<double> Weights { get; set; }
     
+    /// <summary>
+    /// "Bias"
+    /// </summary>
     public double Intercept { get; set;  }
     
+    private readonly int _maxEpoch;
+    private readonly Func<T, double> _doubleConverter;
     
-    private bool _randomizeWeights;
-    
-    public Perceptron(List<DatasetItem> dataset, List<double> weights, double intercept)
+    public Perceptron(List<DatasetItem<T>> dataset,
+                      List<double> weights,
+                      double intercept,
+                      Func<T, double> doubleConverter,
+                      int maxEpoch = 5000)
     {
         Dataset = dataset;
         Weights = weights;
         Intercept = intercept;
-        _randomizeWeights = false;
+        _maxEpoch = maxEpoch;
+        _doubleConverter =  doubleConverter;
     }
 
-    public Perceptron(List<DatasetItem> dataset)
+    public Perceptron(List<DatasetItem<T>> dataset, 
+                      Func<T, double> doubleConverter,
+                      int maxEpoch = 5000)
     {
         Dataset = dataset;
-        _randomizeWeights = true;
+        Weights = new List<double>( new double[dataset[0].Features.Count]);
+        _doubleConverter = doubleConverter;
+        _maxEpoch = maxEpoch;
+        Intercept = 0;
     }
     
     public void Train()
     {
-        RandomizeWeights();
-        while (RunEpoch()) { }
+        for (var epoch = 0; epoch < _maxEpoch; epoch++)
+            if (RunEpoch())
+                break;
     }
     
+    /*
+     * Algorithm is simple:
+     *      Forward input vector -> Clip value.
+     *      If clipped value != expected, we adjust weights:
+     *          w = w + (2 * expected - 1) * x.
+     *          intercept = intercept + (2 * expected - 1)
+     */
     private bool RunEpoch()
     {
-        var changedWeights = false;
+        var numberOfErrors = 0;
+        
         foreach (var item in Dataset)
         {
             // x^T * w + intercept.
-            var vectorMult = item.Features.Select((item, idx) => item * Weights[idx]).Sum();
+            var vectorMult = 0.0;
+            for (var i = 0; i < item.Features.Count; i++)
+                vectorMult += _doubleConverter.Invoke(item.Features[i]) * Weights[i];
+            
             vectorMult += Intercept;
 
             var result = Clip(vectorMult);
@@ -58,29 +83,20 @@ public class Perceptron
             
             // If it was incorrect adjust weights.
             var addition = 2 * item.Expected - 1;
-            var adjusted = item.Features.Select(i => i * addition).ToList();
             
             // w_i+1 = w_i + (2*Y - 1) * x
             for (var i = 0; i < Weights.Count; i++)
-                Weights[i] += adjusted[i];
+                Weights[i] += _doubleConverter.Invoke(item.Features[i]) * addition;
             
             // Intercept = Intercept + (2*Y - 1)
             Intercept += addition;
-            changedWeights = true;
+            numberOfErrors++;
         }
         
-        return changedWeights;
+        Console.WriteLine($"loss: {numberOfErrors * 1.0 / Dataset.Count}");
+        
+        return numberOfErrors == 0;
         
         static int Clip(double value) => value >= 0 ? 1 : 0;
-    }
-    
-    private static double RandomDouble() => Random.Shared.NextDouble() * Random.Shared.Next(-100, 100); 
-    private void RandomizeWeights()
-    {
-        if (!_randomizeWeights) return;
-        
-        Intercept = RandomDouble();
-        for (var i = 0; i < Weights.Count; i++)
-            Weights[i] = RandomDouble();
     }
 }
