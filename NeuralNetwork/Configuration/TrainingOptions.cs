@@ -1,20 +1,18 @@
-using ML.NeuralNetwork.Loader;
-
 namespace ML.NeuralNetwork;
 
-public class TrainingOptions<T>
+public class TrainingOptions
 {
     public double LearningRate { get; init; }
     public int NumEpochs { get; init; }
-    public int NumBatches { get; init; }
-    
-    public DataLoader<T> DataLoader { get; init; }
+    public int BatchSize { get; init; }
 
-    public TrainingOptions(DataLoader<T> dataLoader, int numEpochs, int numBatches,  double learningRate)
+    public int NumberOfThreads { get; set; }
+    
+    public TrainingOptions(int numEpochs, int batchSize,  double learningRate, int numberOfThreads)
     {
-        DataLoader = dataLoader;
         NumEpochs = numEpochs;
-        NumBatches = numBatches;
+        BatchSize = batchSize;
         LearningRate = learningRate;
+        NumberOfThreads = numberOfThreads;
     }
 }

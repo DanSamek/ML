@@ -1,5 +1,6 @@
 ﻿
 using ML.NeuralNetwork;
+using ML.NeuralNetwork.Loader;
 
 class Program
 {
@@ -7,10 +8,10 @@ class Program
     {
         var nn = new NeuralNetwork().AddInputLayer(20)
                                     .AddHiddenLayer(100, ActivationFunctions.RELU)
-                                    .SetLossFunction((outputLayer, expected) => Math.Pow(outputLayer - expected, 2))
+                                    .SetLossFunction((outputLayer, expected) => Math.Pow(outputLayer[0] - expected[0], 2))
                                     .Build();
         
-        nn.Train<double>(null);
+        nn.Train(null);
         nn.UseQuantization();
         nn.Save("net.bin");
     }

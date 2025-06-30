@@ -1,3 +1,4 @@
+using ML.NeuralNetwork.Loader;
 using static ML.NeuralNetwork.NeuralNetworkHelper;
 
 namespace ML.NeuralNetwork;
@@ -6,7 +7,8 @@ public class NeuralNetwork
 {
     private List<Layer> _layers;
     private InputLayer _inputLayer;
-    private Func<double, double, double> _lossFunction;
+    private Func<List<double>, List<double>, double> _lossFunction;
+    private DataLoader _dataLoader;
     
     /// <summary>
     /// Registers an input layer.
@@ -44,7 +46,7 @@ public class NeuralNetwork
     /// <summary>
     /// Registers the loss function that will be used. 
     /// </summary>
-    public NeuralNetwork SetLossFunction(Func<double, double, double> lossFunction)
+    public NeuralNetwork SetLossFunction(Func<List<double>, List<double>, double> lossFunction)
     {
         _lossFunction = lossFunction ?? throw new Exception("Loss function is not set.");
         return this;
@@ -69,6 +71,16 @@ public class NeuralNetwork
         
         return this;
     }
+
+    /// <summary>
+    /// Sets data loader that will be used.
+    /// </summary>
+    public NeuralNetwork SetDataLoader(DataLoader dataLoader)
+    {
+        _dataLoader = dataLoader;
+        return this;
+    }
+    
     
     /// <summary>
     /// Saves neural network into a file.
@@ -90,10 +102,16 @@ public class NeuralNetwork
     /// <summary>
     /// Runs learning of the neural network.
     /// </summary>
-    public void Train<T>(TrainingOptions<T> trainingOptions)
+    public void Train(TrainingOptions trainingOptions)
     {
         var biggestLayerSize = Math.Max(_inputLayer.Size(), _layers.Max(l => l.Size()));
-        
+        foreach (var (input, expected) in _dataLoader.LoadItem())
+        {
+            // TODO copy layers for all workers.
+            
+            Forward(input);
+            // calculate loss
+        }
     }
     
     private void Forward(List<double> data)
