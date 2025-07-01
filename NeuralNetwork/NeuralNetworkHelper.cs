@@ -9,13 +9,16 @@ public static class NeuralNetworkHelper
     public static double Derivative(Func<double, double> function, double x)
     {
         const double h = 0.000001;
-        var derivative = (function(x + h) + function(x)) / h;
+        var derivative = (function(x + h) - function(x)) / h;
         return derivative;
     }
-    
-    public static List<T> InitListWithNItems<T>(int n)
+
+    public static List<T> InitListWithNItems<T>(int n) where T : new()
     {
-        var result = new List<T>([.. new T[n]]);
+        var result = new List<T>();
+        for (var i = 0; i < n; i++)
+            result.Add(new T());
+        
         return result;
     }
     

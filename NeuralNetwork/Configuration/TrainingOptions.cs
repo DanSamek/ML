@@ -15,4 +15,6 @@ public class TrainingOptions
         LearningRate = learningRate;
         NumberOfThreads = numberOfThreads;
     }
+
+    public TrainingOptions(){}
 }

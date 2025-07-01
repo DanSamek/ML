@@ -8,15 +8,17 @@ public partial class NeuralNetwork
     /// </summary>
     private class Worker{
         private record Context(List<Layer> Layers, InputLayer InputLayer);
-        
         private readonly NeuralNetwork _network;
         private Context _context;
-        private static readonly object _trainingLossLock = new();
         
-        public Worker(NeuralNetwork network)
+        private static readonly object _trainingLossLock = new();
+        private readonly int _id;
+        
+        public Worker(NeuralNetwork network, int id)
         {
             _network = network;
             _context = new Context(_network._layers, _network._inputLayer);
+            _id = id;
         }
 
         internal void UpdateNetwork()
@@ -35,7 +37,7 @@ public partial class NeuralNetwork
                     {
                         _network._emptyQueueEvent.Set();
                     }
-                    
+
                     _network._notEmptyQueueEvent.WaitOne();
                     Interlocked.Decrement(ref _network._waitingWorkers);
                     continue;
@@ -49,7 +51,7 @@ public partial class NeuralNetwork
 
                 var output = _context.Layers[^1].Neurons.Select(x => x.Sum).ToList();
                 var forwardResult = new ForwardResult(output, item.Expected);
-                var loss = _network.LossFunction(forwardResult);
+                var loss = _network._lossFunction(forwardResult);
                 
                 Monitor.Enter(_trainingLossLock);
                     _network._trainingLoss += loss;

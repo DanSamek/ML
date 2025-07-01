@@ -2,5 +2,6 @@ namespace ML.NeuralNetwork;
 
 public class Feature
 {
-    public List<double> Weights { get; set; }
+    public List<double> Weights { get; set; } = [];
+
 }
