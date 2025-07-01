@@ -8,7 +8,7 @@ class Program
     {
         var nn = new NeuralNetwork().AddInputLayer(20)
                                     .AddHiddenLayer(100, ActivationFunctions.RELU)
-                                    .SetLossFunction((outputLayer, expected) => Math.Pow(outputLayer[0] - expected[0], 2))
+                                    .SetLossFunction((result) => Math.Pow(result.Output[0] - result.Expected[0], 2))
                                     .Build();
         
         nn.Train(null);
