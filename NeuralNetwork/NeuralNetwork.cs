@@ -4,16 +4,19 @@ using static ML.NeuralNetwork.NeuralNetworkHelper;
 
 namespace ML.NeuralNetwork;
 
-public class NeuralNetwork
+public partial class NeuralNetwork
 {
-    public record TrainingItem(List<double> Input, List<double> Expected);
-    public record ForwardResult(List<double> Output, List<double> Expected);
+    private readonly List<Layer> _layers = null!;
+    private InputLayer _inputLayer = null!;
+    private Func<ForwardResult, double> LossFunction { get; set; }
+    private DataLoader _dataLoader = null!;
+
+    private readonly ManualResetEvent _notEmptyQueueEvent = new (false);
+    private readonly ManualResetEvent _emptyQueueEvent = new (false);
+    private readonly ConcurrentQueue<TrainingItem?> _queue = new();
     
-    
-    private List<Layer> _layers;
-    private InputLayer _inputLayer;
-    private Func<ForwardResult, double> _lossFunction;
-    private DataLoader _dataLoader;
+    private int _waitingWorkers;
+    private double _trainingLoss = 0.0;
     
     /// <summary>
     /// Registers an input layer.
@@ -53,7 +56,7 @@ public class NeuralNetwork
     /// </summary>
     public NeuralNetwork SetLossFunction(Func<ForwardResult, double> lossFunction)
     {
-        _lossFunction = lossFunction ?? throw new Exception("Loss function is not set.");
+        LossFunction = lossFunction ?? throw new Exception("Loss function is not set.");
         return this;
     }
     
@@ -105,64 +108,53 @@ public class NeuralNetwork
     }
     
     /// <summary>
-    /// Runs learning of the neural network.
+    /// Runs training of the neural network.
     /// </summary>
     public void Train(TrainingOptions trainingOptions)
     {
-        var workerQueue = new ManualResetEvent(false);
-        var mainThread = new ManualResetEvent(false);
-        var queue = new ConcurrentQueue<TrainingItem?>();
-        var waitingWorkers = 0;
-        
-        var workers = new List<Worker>();
-        var threads = new List<Thread>();
-        for (var i = 0; i < trainingOptions.NumberOfThreads; i++)
-        {
-            var worker = new Worker(_lossFunction, trainingOptions.NumberOfThreads);
-            worker.UpdateWeights(_inputLayer, _layers);
-            workers.Add(worker);
-            
-            var thread = new Thread(() => workers[^1].Run(ref workerQueue, ref mainThread, ref queue, ref waitingWorkers));
-            threads.Add(thread);
-        }
-        
-        foreach (var thread in threads)
-            thread.Start();
+        var (threads, workers) = RunWorkers(trainingOptions.NumberOfThreads);
+
+        var totalLines = _dataLoader.CountLines();
         
         for (var epoch = 1; epoch <= trainingOptions.NumEpochs; epoch++)
         {
-            var enumerator = _dataLoader.LoadItem();
+            var enumerator = _dataLoader.GetEnumerator();
             var total = 0;
-            
-            // Load batch & Process batch.
-            foreach (var (input, expected) in enumerator)
+           
+            while (total < totalLines)
             {
-                if (total >= trainingOptions.BatchSize)
-                    break;
-                
-                queue.Enqueue(new TrainingItem(input, expected));
-                workerQueue.Set();
-                
-                total++;
-            }
+                _trainingLoss = 0;
+                // Load batch & Process batch.
+                foreach (var (input, expected) in enumerator)
+                {
+                    if (total >= trainingOptions.BatchSize)
+                        break;
+                    
+                    _queue.Enqueue(new TrainingItem(input, expected));
+                    _notEmptyQueueEvent.Set();
+                    
+                    total++;
+                }
 
-            while (!queue.IsEmpty)
-                mainThread.WaitOne();
+                while (!_queue.IsEmpty)
+                    _emptyQueueEvent.WaitOne();
+                
+                Console.WriteLine(_trainingLoss);
 
-            // Backpropagation.
-            // TODO
-            
-            // Update net in workers.
-            foreach (var worker in workers)
-            {
-                worker.UpdateWeights(_inputLayer, _layers);
+                // Backpropagation.
+                // TODO
+                
+                foreach (var worker in workers)
+                {
+                    worker.UpdateNetwork();
+                }
             }
         }
 
         // Stop workers.
         for (var i = 0; i < trainingOptions.NumberOfThreads; i++)
         {
-            queue.Enqueue(null);
+            _queue.Enqueue(null);
         }
         
         foreach (var thread in threads)
@@ -171,89 +163,21 @@ public class NeuralNetwork
         }
     }
 
-    
-    
-    private class Worker
+    private (List<Thread> threads, List<Worker> workers) RunWorkers(int numberOfThreads)
     {
-        private List<Layer> _layers;
-        private InputLayer _inputLayer;
-        private readonly Func<ForwardResult, double> _lossFunction;
-        private readonly int _totalWorkers;
-
-        public Worker(Func<ForwardResult, double> lossFunction, int totalWorkers)
+        var threads = new List<Thread>();
+        var workers = new List<Worker>();
+        for (var i = 0; i < numberOfThreads; i++)
         {
-            _lossFunction = lossFunction;
-            _totalWorkers = totalWorkers;
-        }
-
-        public void UpdateWeights(InputLayer inputLayer, List<Layer> layers)
-        {
-            _inputLayer = inputLayer;
-            _layers = layers;
+            workers.Add(new Worker(this));
+            
+            var thread = new Thread(() => workers[^1].Run(numberOfThreads));
+            threads.Add(thread);
         }
         
-        public void Run(ref ManualResetEvent resetEvent, 
-                        ref ManualResetEvent mainThread,
-                        ref ConcurrentQueue<TrainingItem?> queue, 
-                        ref int waitingWorkers)
-        {
-            while (true)
-            {
-                if (!queue.TryDequeue(out var item))
-                {
-                    Interlocked.Increment(ref waitingWorkers);
-                    if (waitingWorkers >= _totalWorkers)
-                    {
-                        mainThread.Set();
-                    }
-                    
-                    resetEvent.WaitOne();
-                    Interlocked.Decrement(ref waitingWorkers);
-                    continue;
-                }
-                
-                // null = stop
-                if (item is null)
-                    break;
-                
-                Forward(item.Input);
-
-                var output = _layers[^1].Neurons.Select(x => x.Sum).ToList();
-                var forwardResult = new ForwardResult(output, item.Expected);
-                var loss = _lossFunction(forwardResult);
-                // TODO count forwarded + total loss.
-            }
-        }
+        foreach (var thread in threads)
+            thread.Start();
         
-        private void Forward(List<double> data)
-        {
-            ResetNeuronSums();
-        
-            for (var i = 0; i < _inputLayer.Size(); i++)
-            {
-                var weights = _inputLayer.Features[i].Weights;
-                for (var j = 0; j < _layers[0].Size(); j++)
-                    _layers[0].Neurons[j].Sum += data[i] * weights[j];
-            }
-        
-            _layers[0].Activate();
-            for (var layer = 0; layer < _layers.Count - 1; layer++)
-            {
-                var neurons = _layers[layer].Neurons;
-
-                for (var i = 0; i < neurons.Count; i++)
-                {
-                    var weights = _layers[layer].Neurons[i].Weights;
-                    for (var j = 0; j < _layers[layer + 1].Size(); j++)
-                    {
-                        _layers[layer + 1].Neurons[j].Sum += neurons[i].Sum * weights[j];
-                    }
-                }
-                _layers[layer].Activate();
-            }
-            _layers[^1].Activate();
-        }
-        
-        private void ResetNeuronSums() => _layers.ForEach(l => l.Neurons.ForEach(n => n.Sum = n.Bias));
+        return (threads, workers);
     }
 }

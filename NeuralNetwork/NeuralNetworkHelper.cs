@@ -18,4 +18,8 @@ public static class NeuralNetworkHelper
         var result = new List<T>([.. new T[n]]);
         return result;
     }
+    
+    public record TrainingItem(List<double> Input, List<double> Expected);
+    public record ForwardResult(List<double> Output, List<double> Expected);
+
 }

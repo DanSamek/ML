@@ -20,7 +20,7 @@ public class DataLoader
         return totalLines;
     }
     
-    public IEnumerable<(List<double> input, List<double> expected)> LoadItem()
+    public IEnumerable<(List<double> input, List<double> expected)> GetEnumerator()
     {
         using var reader = new StreamReader(_dataSource);
         while (!reader.EndOfStream)
