@@ -13,7 +13,7 @@ public class Layer(int numberNeurons, Func<double, double> activationFunction)
     /// <summary>
     /// Runs activation function for all neurons.
     /// </summary>
-    public void Activate() => Neurons.ForEach(n => n.Sum = activationFunction(n.Sum));
+    public void Activate() => Neurons.ForEach(n => n.Sum = ActivationFunction(n.Sum));
 }
 
 public class InputLayer(int numberFeatures)

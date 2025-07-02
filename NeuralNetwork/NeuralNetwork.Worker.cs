@@ -17,13 +17,13 @@ public partial class NeuralNetwork
         public Worker(NeuralNetwork network, int id)
         {
             _network = network;
-            _context = new Context(_network._layers, _network._inputLayer);
+            _context = new Context(_network.Layers, _network.InputLayer);
             _id = id;
         }
 
         internal void UpdateNetwork()
         {
-            _context = new Context(_network._layers, _network._inputLayer);   
+            _context = new Context(_network.Layers, _network.InputLayer);   
         }
         
         internal void Run(int totalWorkers)

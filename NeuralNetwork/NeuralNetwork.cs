@@ -6,10 +6,10 @@ namespace ML.NeuralNetwork;
 
 public partial class NeuralNetwork
 {
-    private Func<ForwardResult, double> _lossFunction;
+    private Func<ForwardResult, double> _lossFunction = null!;
+    public List<Layer> Layers { get; } = [];
+    public InputLayer InputLayer { get; private set; } = null!;
     
-    private readonly List<Layer> _layers = [];
-    private InputLayer _inputLayer = null!;
     private DataLoader _dataLoader = null!;
 
     private readonly AutoResetEvent _notEmptyQueueEvent = new (false);
@@ -25,11 +25,11 @@ public partial class NeuralNetwork
     /// <exception cref="Exception">If layer was already set.</exception>
     public NeuralNetwork AddInputLayer(int numberFeatures)
     {
-        if (_inputLayer is not null)
+        if (InputLayer is not null)
         {
             throw new Exception("Input layer was already set.");
         }
-        _inputLayer = new InputLayer(numberFeatures);
+        InputLayer = new InputLayer(numberFeatures);
         return this;
     }
     
@@ -48,7 +48,7 @@ public partial class NeuralNetwork
         }
         
         var hiddenLayer = new Layer(numberOfNeurons, activationFunction);
-        _layers.Add(hiddenLayer);
+        Layers.Add(hiddenLayer);
         return this;
     }
     
@@ -68,15 +68,15 @@ public partial class NeuralNetwork
     /// <exception cref="Exception">If input layer is not set, or output layer is not set.</exception>
     public NeuralNetwork Build()
     {
-        if (_inputLayer is null)  throw new Exception("Input layer is not set.");
-        if (_layers.Count == 0)  throw new Exception("No layer has been set.");
+        ArgumentNullException.ThrowIfNull(InputLayer);
+        ArgumentOutOfRangeException.ThrowIfEqual(Layers.Count, 0);
         
-        foreach (var feature in _inputLayer.Features)
-            feature.Weights = InitListWithNItems<double>(_layers[0].Size());
+        foreach (var feature in InputLayer.Features)
+            feature.Weights = InitListWithNItems<double>(Layers[0].Size());
         
-        for (var i = 0; i < _layers.Count - 1; i++)
-            foreach (var neuron in _layers[i].Neurons)
-                neuron.Weights = InitListWithNItems<double>(_layers[i + 1].Size());
+        for (var i = 0; i < Layers.Count - 1; i++)
+            foreach (var neuron in Layers[i].Neurons)
+                neuron.Weights = InitListWithNItems<double>(Layers[i + 1].Size());
         
         return this;
     }
@@ -101,10 +101,10 @@ public partial class NeuralNetwork
     public void Save(string path)
     {
         using var binaryStream = new BinaryWriter(File.Open(path, FileMode.Create));
-        foreach (var weight in _inputLayer.Features.SelectMany(feature => feature.Weights))
+        foreach (var weight in InputLayer.Features.SelectMany(feature => feature.Weights))
             binaryStream.Write(weight);
         
-        foreach (var neuron in _layers.SelectMany(l => l.Neurons))
+        foreach (var neuron in Layers.SelectMany(l => l.Neurons))
         {
             binaryStream.Write(neuron.Bias);
             foreach (var weight in neuron.Weights)
@@ -121,13 +121,13 @@ public partial class NeuralNetwork
     public void Load(string path)
     {
         using var binaryStream = new BinaryReader(File.Open(path, FileMode.Open));
-        foreach (var feature in _inputLayer.Features)
+        foreach (var feature in InputLayer.Features)
         {
             for (var i = 0; i < feature.Weights.Count; i++)
                 feature.Weights[i] = binaryStream.ReadDouble();
         }
         
-        foreach (var neuron in _layers.SelectMany(l => l.Neurons))
+        foreach (var neuron in Layers.SelectMany(l => l.Neurons))
         {
             neuron.Bias = binaryStream.ReadDouble();
             for (var i = 0; i < neuron.Weights.Count; i++)
@@ -144,13 +144,13 @@ public partial class NeuralNetwork
     /// <param name="max">Maximum weight value.</param>
     public void InitializeRandom(int min = -10, int max = 10)
     {
-        foreach (var feature in _inputLayer.Features)
+        foreach (var feature in InputLayer.Features)
         {
             for (var i = 0; i < feature.Weights?.Count; i++)
                 feature.Weights[i] = RandomDouble();
         }
         
-        foreach (var neuron in _layers.SelectMany(l => l.Neurons))
+        foreach (var neuron in Layers.SelectMany(l => l.Neurons))
         {
             neuron.Bias = RandomDouble();
             for (var i = 0; i < neuron.Weights.Count; i++)
@@ -174,6 +174,8 @@ public partial class NeuralNetwork
     /// </summary>
     public void Train(TrainingOptions trainingOptions)
     {
+        ArgumentNullException.ThrowIfNull(_lossFunction);
+        
         var (threads, workers) = RunWorkers(trainingOptions.NumberOfThreads);
         var totalLines = _dataLoader.CountLines();
         

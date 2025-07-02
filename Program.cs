@@ -50,6 +50,8 @@ class Program
             var fileName = CreateFile();
             var nn = new NeuralNetwork()
                 .AddInputLayer(2)
+                .AddHiddenLayer(8, value => value)
+                .AddHiddenLayer(4, value => value)
                 .AddHiddenLayer(1, value => value)
                 .SetLossFunction(LossFunction)
                 .SetDataLoader(new DataLoader(fileName, Parse)) 
@@ -57,7 +59,7 @@ class Program
         
             var options = new TrainingOptions
             {
-                NumberOfThreads = 1
+                NumberOfThreads = 16
             };
             nn.Train(options);
             File.Delete(fileName);
