@@ -234,9 +234,6 @@ public partial class NeuralNetwork
                 
                 // Backpropagation.
                 // TODO
-                
-                foreach (var worker in workers)
-                    worker.UpdateNetwork();
             }
         }
 

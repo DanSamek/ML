@@ -7,9 +7,8 @@ public partial class NeuralNetwork
     /// Worker class for neural network forward + loss calculation.
     /// </summary>
     private class Worker{
-        private record Context(List<Layer> Layers, InputLayer InputLayer);
         private readonly NeuralNetwork _network;
-        private Context _context;
+        private readonly List<(double[] Sums, double[] Activations)> _forwardContext;
         
         private static readonly object _trainingLossLock = new();
         private readonly int _id;
@@ -17,13 +16,11 @@ public partial class NeuralNetwork
         public Worker(NeuralNetwork network, int id)
         {
             _network = network;
-            _context = new Context(_network.Layers, _network.InputLayer);
             _id = id;
-        }
-
-        internal void UpdateNetwork()
-        {
-            _context = new Context(_network.Layers, _network.InputLayer);   
+            
+            _forwardContext = _network.Layers
+                .Select(l => (new double[l.Size()], new double [l.Size()]))
+                .ToList();
         }
         
         internal void Run(int totalWorkers)
@@ -49,7 +46,7 @@ public partial class NeuralNetwork
                 
                 Forward(item.Input);
 
-                var output = _context.Layers[^1].Neurons.Select(x => x.Sum).ToList();
+                var output = _forwardContext[^1].Activations.ToList(); // TODO arrays.
                 var forwardResult = new ForwardResult(output, item.Expected);
                 var loss = _network._lossFunction(forwardResult);
                 
@@ -61,33 +58,58 @@ public partial class NeuralNetwork
         
         private void Forward(List<double> data)
         {
-            ResetNeuronSums();
+            ResetForwardContext();
         
-            for (var i = 0; i < _context.InputLayer.Size(); i++)
+            for (var i = 0; i < _network.InputLayer.Size(); i++)
             {
-                var weights = _context.InputLayer.Features[i].Weights;
-                for (var j = 0; j < _context.Layers[0].Size(); j++)
-                    _context.Layers[0].Neurons[j].Sum += data[i] * weights[j];
+                var weights = _network.InputLayer.Features[i].Weights;
+                for (var j = 0; j < _network.Layers[0].Size(); j++)
+                    _forwardContext[0].Sums[j] += data[i] * weights[j];
             }
-        
-            _context.Layers[0].Activate();
-            for (var layer = 0; layer < _context.Layers.Count - 1; layer++)
+
+            Activate(0);
+            for (var layer = 0; layer < _network.Layers.Count - 1; layer++)
             {
-                var neurons = _context.Layers[layer].Neurons;
+                var neurons = _network.Layers[layer].Neurons;
 
                 for (var i = 0; i < neurons.Count; i++)
                 {
-                    var weights = _context.Layers[layer].Neurons[i].Weights;
-                    for (var j = 0; j < _context.Layers[layer + 1].Size(); j++)
+                    var weights = _network.Layers[layer].Neurons[i].Weights;
+                    for (var j = 0; j < _network.Layers[layer + 1].Size(); j++)
                     {
-                        _context.Layers[layer + 1].Neurons[j].Sum += neurons[i].Sum * weights[j];
+                        _forwardContext[layer + 1].Sums[j] += _forwardContext[layer].Activations[i] * weights[j];
                     }
                 }
-                _context.Layers[layer + 1].Activate();
+                Activate(layer + 1);
             }
         }
-        
-        private void ResetNeuronSums() => _context.Layers.ForEach(l => l.Neurons.ForEach(n => n.Sum = n.Bias));
+
+        private void Activate(int layerIdx)
+        {
+            var layer = _network.Layers[layerIdx];
+            var activationFunction = layer.ActivationFunction;
+            var layerSize = layer.Size();
+
+            var layerForwardContext = _forwardContext[layerIdx];
+            for (var i = 0; i < layerSize; i++)
+            {
+                layerForwardContext.Activations[i] = activationFunction(layerForwardContext.Sums[i]);
+            }
+        }
+
+        private void ResetForwardContext()
+        {
+            for (var i = 0; i < _forwardContext.Count; i++)
+            {
+                var layer = _network.Layers[i];
+                var layerSize = layer.Size();
+                for (var j = 0; j < layerSize; j++) 
+                {
+                    _forwardContext[i].Sums[j] = layer.Neurons[j].Bias;
+                    _forwardContext[i].Activations[j] = 0;
+                }
+            }
+        }
     }
     
 }
