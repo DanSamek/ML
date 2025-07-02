@@ -83,9 +83,8 @@ public partial class NeuralNetwork
                         _context.Layers[layer + 1].Neurons[j].Sum += neurons[i].Sum * weights[j];
                     }
                 }
-                _context.Layers[layer].Activate();
+                _context.Layers[layer + 1].Activate();
             }
-            _context.Layers[^1].Activate();
         }
         
         private void ResetNeuronSums() => _context.Layers.ForEach(l => l.Neurons.ForEach(n => n.Sum = n.Bias));

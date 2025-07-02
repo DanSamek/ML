@@ -9,26 +9,31 @@ namespace ML.NeuralNetwork;
 [TestFixture]
 public class NeuralNetworkTests
 {
-    private readonly IReadOnlyList<(double, double, double)> _data = new List<(double, double, double)>()
+    private readonly IReadOnlyList<List<double>> _loadTestData = new List<List<double>>
     {
-        (0.5,-0.5,0.4),
-        (1,1.9,1.14),
-        (2.1,1,2.5405),
-        (5.4,3,5.4),
-        (6,2.12,1),
-        (1.46,3.45,-5),
-        (5.1,5.2,5.5)
+        new () {0.5,-0.5,0.4},
+        new () {1,1.9,1.14},
+        new () {2.1,1,2.5405},
+        new () {5.4,3,5.4},
+        new () {6,2.12,1},
+        new () {1.46,3.45,-5},
+        new () {5.1,5.2,5.5}
     };
     
-    private const string NN_NAME = "test.bin";
-    
-    private string CreateFile()
+    private static string CreateFile(IReadOnlyList<List<double>> data)
     {
         var fileName = Guid.NewGuid().ToString();
         var stringBuilder = new StringBuilder();
-        foreach (var item in _data)
+        var lineSb = new StringBuilder();
+        
+        foreach (var item in data)
         {
-            var line = $"{item.Item1} {item.Item2} {item.Item3}";
+            lineSb.Clear();
+            for (var i = 0; i < item.Count - 1; i++)
+                lineSb.Append($"{item[i]} ");
+            lineSb.Append(item[^1]);
+            
+            var line = lineSb.ToString();
             stringBuilder.AppendLine(line);
         }
 
@@ -37,27 +42,30 @@ public class NeuralNetworkTests
         return fileName;
     }
     
-    private static TrainingItem Parse(string line)
+    private static TrainingItem Parse(string line, int inputSize)
     {
         var splitLine = line.Split(" ");
-        List<double> input = [double.Parse(splitLine[0]), double.Parse(splitLine[1])]; 
-        List<double> expected = [double.Parse(splitLine[^1])]; 
+        
+        var input = new List<double>();
+        for (var i = 0; i < inputSize; i++)
+            input.Add(double.Parse(splitLine[i]));
+        
+        List<double> expected = [double.Parse(splitLine[^1])];
         var trainingItem = new TrainingItem(input, expected);
         return trainingItem;
     }
-
-    // Absolute error.
-    private double LossFunction(ForwardResult result) => Math.Abs(result.Expected[0] - result.Output[0]);
+    
+    private const string NN_NAME = "test.bin";
     
     [Test]
     public void LoadTest()
     {
-        var fileName = CreateFile();
+        var dataFile = CreateFile(_loadTestData);
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
-            .AddHiddenLayer(1, value => value)
-            .SetLossFunction(LossFunction)
-            .SetDataLoader(new DataLoader(fileName, Parse)) 
+            .AddLayer(1, value => value)
+            .SetLossFunction(result => Math.Abs(result.Expected[0] - result.Output[0]))
+            .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 2))) 
             .Build();
         
         nn.InitializeRandom();
@@ -97,35 +105,79 @@ public class NeuralNetworkTests
 
             for (var ni = 0; ni < layer.Size(); ni++)
             {
-                Assert.That(beforeLayer.Neurons[ni].Bias == layer.Neurons[ni].Bias);
+                Assert.That(Math.Abs(beforeLayer.Neurons[ni].Bias - layer.Neurons[ni].Bias) < double.Epsilon);
                 CollectionAssert.AreEqual(beforeLayer.Neurons[ni].Weights, layer.Neurons[ni].Weights);
             }
         }
         
         // Cleanup
-        File.Delete(fileName);
+        File.Delete(dataFile);
         File.Delete(NN_NAME);
     }
     
     /// <summary>
-    /// TODO!
-    /// First needed load net from file -- custom weights.
+    /// Tests on simple input if forward is correct.
+    /// With x => x / 2 activation function.
     /// </summary>
     [Test]
-    public void ForwardTest()
+    public void SimpleForwardTest()
     {
-        /*
-        var fileName = CreateFile();
-        var nn = new NeuralNetwork()
-                    .AddInputLayer(2)
-                    .AddHiddenLayer(1, value => value)
-                    .SetLossFunction(LossFunction)
-                    .SetDataLoader(new DataLoader(fileName, Parse)) 
-                    .Build();
+        var dataFile = CreateFile(new List<List<double>>
+            {
+                new() { 1, 2, 3, 16.7125 },
+            });
 
-        var options = new TrainingOptions();
-        nn.Train(options);
-        File.Delete(fileName);
-        */
+        var inputLayer = new InputLayer(3)
+        {
+            Features =
+            [
+                new Feature { Weights = [2, 1] },
+                new Feature { Weights = [3, 1.5] },
+                new Feature { Weights = [2, 4] }
+            ]
+        };
+        
+        var hiddenLayer1 = new Layer (2, x => x / 2)
+        {
+            Neurons = 
+            [
+                new Neuron { Bias = 0, Weights = [2, 2.5, 0] },
+                new Neuron { Bias = 1, Weights = [2, 1.5, 1] }
+            ]
+        };
+
+        var hiddenLayer2 = new Layer(3, x => x / 2)
+        {
+            Neurons = 
+            [
+                new Neuron { Bias = 1, Weights = [0.3] },
+                new Neuron { Bias = 2, Weights = [1] },
+                new Neuron { Bias = 3, Weights = [2] }
+            ]
+        };
+
+        var outputLayer = new Layer(1, x => x / 2)
+        {
+            Neurons =
+            [
+                new Neuron { Bias = 1 }
+            ]
+        };
+        
+        // 3 -> 2 -> 3 -> 1 net
+        var nn = new NeuralNetwork()
+                .AddInputLayer(inputLayer)
+                .AddLayer(hiddenLayer1)
+                .AddLayer(hiddenLayer2)
+                .AddLayer(outputLayer)
+                .SetLossFunction(result =>
+                {
+                    Assert.That(Math.Abs(result.Expected[0] - result.Output[0]) < double.Epsilon);
+                    return 0;
+                })
+                .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 3)));
+            
+        nn.Train(new TrainingOptions());
+        File.Delete(dataFile);
     }
 }

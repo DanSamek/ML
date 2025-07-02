@@ -50,9 +50,9 @@ class Program
             var fileName = CreateFile();
             var nn = new NeuralNetwork()
                 .AddInputLayer(2)
-                .AddHiddenLayer(8, value => value)
-                .AddHiddenLayer(4, value => value)
-                .AddHiddenLayer(1, value => value)
+                .AddLayer(8, value => value)
+                .AddLayer(4, value => value)
+                .AddLayer(1, value => value)
                 .SetLossFunction(LossFunction)
                 .SetDataLoader(new DataLoader(fileName, Parse)) 
                 .Build();

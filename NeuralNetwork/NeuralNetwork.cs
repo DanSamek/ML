@@ -25,22 +25,34 @@ public partial class NeuralNetwork
     /// <exception cref="Exception">If layer was already set.</exception>
     public NeuralNetwork AddInputLayer(int numberFeatures)
     {
-        if (InputLayer is not null)
-        {
+        if (InputLayer is not null)  
             throw new Exception("Input layer was already set.");
-        }
+        
         InputLayer = new InputLayer(numberFeatures);
         return this;
     }
     
     /// <summary>
-    /// Registers the hidden layer.
+    /// Sets input layer.
+    /// </summary>
+    /// <returns></returns>
+    public NeuralNetwork AddInputLayer(InputLayer inputLayer)
+    {
+        if (InputLayer is not null)  
+            throw new Exception("Input layer was already set.");
+        
+        InputLayer = inputLayer;
+        return this;
+    }
+    
+    /// <summary>
+    /// Adds a new layer [hidden/output]
     /// </summary>
     /// <param name="numberOfNeurons">Number of neurons in layer.</param>
     /// <param name="activationFunction">Activation function that will be used in the layer.</param>
     /// <returns></returns>
     /// <exception cref="Exception">If activationFunction is not set.</exception>
-    public NeuralNetwork AddHiddenLayer(int numberOfNeurons, Func<double, double> activationFunction)
+    public NeuralNetwork AddLayer(int numberOfNeurons, Func<double, double> activationFunction)
     {
         if (activationFunction is null)
         {
@@ -49,6 +61,19 @@ public partial class NeuralNetwork
         
         var hiddenLayer = new Layer(numberOfNeurons, activationFunction);
         Layers.Add(hiddenLayer);
+        return this;
+    }
+    
+    /// <summary>
+    /// Adds a new layer [hidden/output]
+    /// </summary>
+    /// <param name="layer">Configured layer.</param> 
+    /// <exception cref="Exception">If activationFunction is not set.</exception>
+    /// <returns></returns>
+    
+    public NeuralNetwork AddLayer(Layer layer)
+    {
+        Layers.Add(layer);
         return this;
     }
     
@@ -63,6 +88,7 @@ public partial class NeuralNetwork
     
     /// <summary>
     /// "Connects" entire neural network.
+    /// NOTE: Can be used only if <see cref="AddLayer(int,System.Func{double,double})"/> and <see cref="AddInputLayer(int)"/> was used.
     /// </summary>
     /// <returns></returns>
     /// <exception cref="Exception">If input layer is not set, or output layer is not set.</exception>
