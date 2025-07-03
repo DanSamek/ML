@@ -1,5 +1,7 @@
 using System.Text;
+using ML.NeuralNetwork.ActivationFunctions;
 using ML.NeuralNetwork.Loader;
+using ML.NeuralNetwork.LossFunctions;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using static ML.NeuralNetwork.NeuralNetworkHelper;
@@ -56,6 +58,11 @@ public class NeuralNetworkTests
     }
     
     private const string NN_NAME = "test.bin";
+
+    private class TestFunction2 : ActivationFunctionBase
+    {
+        public override double Value(double x) => x;
+    }
     
     [Test]
     public void LoadTest()
@@ -63,8 +70,8 @@ public class NeuralNetworkTests
         var dataFile = CreateFile(_loadTestData);
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
-            .AddLayer(1, value => value)
-            .SetLossFunction(result => Math.Abs(result.Expected[0] - result.Output[0]))
+            .AddLayer(1, typeof(TestFunction2))
+            .SetLossFunction(typeof(MAE))
             .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 2))) 
             .Build();
         
@@ -78,7 +85,7 @@ public class NeuralNetworkTests
         var layers = new List<Layer>();
         foreach (var layer in nn.Layers)
         {
-            var newLayer = new Layer(layer.Size(), layer.ActivationFunction);
+            var newLayer = new Layer(layer.Size(), layer.ActivationFunction.GetType());
             for (var i = 0; i < newLayer.Size(); i++)
             {
                 newLayer.Neurons[i].Bias = layer.Neurons[i].Bias;
@@ -114,6 +121,12 @@ public class NeuralNetworkTests
         File.Delete(dataFile);
         File.Delete(NN_NAME);
     }
+
+    private class TestActivationFunction : ActivationFunctionBase
+    {
+        public override double Value(double x) => x / 2;
+    }
+    
     
     /// <summary>
     /// Tests on simple input if forward is correct.
@@ -137,7 +150,7 @@ public class NeuralNetworkTests
             ]
         };
         
-        var hiddenLayer1 = new Layer (2, x => x / 2)
+        var hiddenLayer1 = new Layer (2, typeof(TestActivationFunction))
         {
             Neurons = 
             [
@@ -146,7 +159,7 @@ public class NeuralNetworkTests
             ]
         };
 
-        var hiddenLayer2 = new Layer(3, x => x / 2)
+        var hiddenLayer2 = new Layer(3, typeof(TestActivationFunction))
         {
             Neurons = 
             [
@@ -156,7 +169,7 @@ public class NeuralNetworkTests
             ]
         };
 
-        var outputLayer = new Layer(1, x => x / 2)
+        var outputLayer = new Layer(1, typeof(TestActivationFunction))
         {
             Neurons =
             [
@@ -170,11 +183,7 @@ public class NeuralNetworkTests
                 .AddLayer(hiddenLayer1)
                 .AddLayer(hiddenLayer2)
                 .AddLayer(outputLayer)
-                .SetLossFunction(result =>
-                {
-                    Assert.That(Math.Abs(result.Expected[0] - result.Output[0]) < double.Epsilon);
-                    return 0;
-                })
+                .SetLossFunction(typeof(MAE))
                 .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 3)));
             
         nn.Train(new TrainingOptions());

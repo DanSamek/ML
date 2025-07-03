@@ -1,13 +1,13 @@
+using ML.NeuralNetwork.ActivationFunctions;
 using static ML.NeuralNetwork.NeuralNetworkHelper;
 
 namespace ML.NeuralNetwork;
 
-public class Layer(int numberNeurons, Func<double, double> activationFunction)
+public class Layer(int numberNeurons, Type activationFunction)
 {
     public List<Neuron> Neurons { get; set; } = InitListWithNItems<Neuron>(numberNeurons);
-    
-    public Func<double, double> ActivationFunction { get; set; } =  activationFunction;
-    
+    public ActivationFunctionBase ActivationFunction { get; set; } = Activator.CreateInstance(activationFunction) as ActivationFunctionBase 
+                                                                     ?? throw new ArgumentException($"Activation function type has to be child class of {nameof(ActivationFunctionBase)}.)");
     public int Size() => Neurons.Count;
 }
 

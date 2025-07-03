@@ -1,7 +1,9 @@
 ﻿
 using System.Text;
 using ML.NeuralNetwork;
+using ML.NeuralNetwork.ActivationFunctions;
 using ML.NeuralNetwork.Loader;
+using ML.NeuralNetwork.LossFunctions;
 using static ML.NeuralNetwork.NeuralNetworkHelper;
 
 class Program
@@ -41,8 +43,10 @@ class Program
         return trainingItem;
     }
 
-    // Absolute error.
-    private static double LossFunction(ForwardResult result) => Math.Abs(result.Expected[0] - result.Output[0]);
+    private class SimpleActivationFunction : ActivationFunctionBase
+    {
+        public override double Value(double x) => x;
+    }
     
     public static void Main(string[] args)
     {
@@ -50,10 +54,10 @@ class Program
             var fileName = CreateFile();
             var nn = new NeuralNetwork()
                 .AddInputLayer(2)
-                .AddLayer(8, value => value)
-                .AddLayer(4, value => value)
-                .AddLayer(1, value => value)
-                .SetLossFunction(LossFunction)
+                .AddLayer(8, typeof(SimpleActivationFunction))
+                .AddLayer(4, typeof(SimpleActivationFunction))
+                .AddLayer(1, typeof(SimpleActivationFunction))
+                .SetLossFunction(typeof(MAE))
                 .SetDataLoader(new DataLoader(fileName, Parse)) 
                 .Build();
         

@@ -1,12 +1,14 @@
 using System.Collections.Concurrent;
+using ML.NeuralNetwork.ActivationFunctions;
 using ML.NeuralNetwork.Loader;
+using ML.NeuralNetwork.LossFunctions;
 using static ML.NeuralNetwork.NeuralNetworkHelper;
 
 namespace ML.NeuralNetwork;
 
 public partial class NeuralNetwork
 {
-    private Func<ForwardResult, double> _lossFunction = null!;
+    private LossFunctionBase _lossFunction = null!;
     public List<Layer> Layers { get; } = [];
     public InputLayer InputLayer { get; private set; } = null!;
     
@@ -52,7 +54,7 @@ public partial class NeuralNetwork
     /// <param name="activationFunction">Activation function that will be used in the layer.</param>
     /// <returns></returns>
     /// <exception cref="Exception">If activationFunction is not set.</exception>
-    public NeuralNetwork AddLayer(int numberOfNeurons, Func<double, double> activationFunction)
+    public NeuralNetwork AddLayer(int numberOfNeurons, Type activationFunction)
     {
         if (activationFunction is null)
         {
@@ -80,9 +82,9 @@ public partial class NeuralNetwork
     /// <summary>
     /// Registers the loss function that will be used. 
     /// </summary>
-    public NeuralNetwork SetLossFunction(Func<ForwardResult, double> lossFunction)
+    public NeuralNetwork SetLossFunction(Type lossFunction)
     {
-        _lossFunction = lossFunction ?? throw new Exception("Loss function is not set.");
+        _lossFunction = Activator.CreateInstance(lossFunction) as LossFunctionBase ?? throw new Exception("Incorrect type of the loss function.");
         return this;
     }
     

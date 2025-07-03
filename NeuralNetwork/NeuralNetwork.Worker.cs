@@ -1,5 +1,4 @@
 namespace ML.NeuralNetwork;
-using static NeuralNetworkHelper;
 
 public partial class NeuralNetwork
 {
@@ -11,6 +10,7 @@ public partial class NeuralNetwork
         private readonly List<(double[] Sums, double[] Activations)> _forwardContext;
         private readonly List<double[]> _weightPartialDerivatives = [];
         private readonly List<double[]> _biasPartialDerivatives = [];
+        private readonly double[] _errors;
         
         private static readonly object _trainingLossLock = new();
         private readonly int _id;
@@ -32,6 +32,8 @@ public partial class NeuralNetwork
             _biasPartialDerivatives = _network.Layers
                 .Select(l => new double[l.Neurons.Count])
                 .ToList();
+            
+            _errors = new double [_network.Layers[^1].Size()];
         }
         
         internal void Run(int totalWorkers)
@@ -56,26 +58,19 @@ public partial class NeuralNetwork
                     break;
                 
                 Forward(item.Input);
-
-                var output = _forwardContext[^1].Activations.ToList(); // TODO arrays.
-                var forwardResult = new ForwardResult(output, item.Expected);
-                var loss = _network._lossFunction(forwardResult);
                 
-                // Update training loss.
-                Monitor.Enter(_trainingLossLock);
-                    _network._trainingLoss += loss;
-                Monitor.Exit(_trainingLossLock);
+                for (var i = 0; i < _network.Layers[^1].Size(); i++)
+                    _errors[i] = _network._lossFunction.Value(_forwardContext[^1].Activations[i], item.Expected[i]);
                 
-                Backpropagation(loss);
+                Backpropagate();
             }
         }
 
-        private void Backpropagation(double loss)
+        private void Backpropagate()
         {
             // TODO
             // - Precalculate all used partial derivatives [no weight/bias]
             // - Using precalculated partial derivatives calculate derivatives of weights and biases.
-            
             
             // TODO send to neural net - partial derivatives of entire net.
             // TODO net will do averages + weight & bias updates.
@@ -118,7 +113,7 @@ public partial class NeuralNetwork
             var layerForwardContext = _forwardContext[layerIdx];
             for (var i = 0; i < layerSize; i++)
             {
-                layerForwardContext.Activations[i] = activationFunction(layerForwardContext.Sums[i]);
+                layerForwardContext.Activations[i] = activationFunction.Value(layerForwardContext.Sums[i]);
             }
         }
 
