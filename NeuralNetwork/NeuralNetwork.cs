@@ -232,11 +232,10 @@ public partial class NeuralNetwork
                 while (!_queue.IsEmpty)
                     _emptyQueueEvent.WaitOne();
                 
-                // Backpropagation.
-                // TODO
+                // TODO calculate gradients + update net weights.
             }
         }
-
+        
         StopWorkers(threads);
     }
 

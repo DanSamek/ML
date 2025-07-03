@@ -9,6 +9,8 @@ public partial class NeuralNetwork
     private class Worker{
         private readonly NeuralNetwork _network;
         private readonly List<(double[] Sums, double[] Activations)> _forwardContext;
+        private readonly List<double[]> _weightPartialDerivatives = [];
+        private readonly List<double[]> _biasPartialDerivatives = [];
         
         private static readonly object _trainingLossLock = new();
         private readonly int _id;
@@ -20,6 +22,15 @@ public partial class NeuralNetwork
             
             _forwardContext = _network.Layers
                 .Select(l => (new double[l.Size()], new double [l.Size()]))
+                .ToList();
+            
+            var inputLayerSize = network.InputLayer.Size();
+            _weightPartialDerivatives.Add(new double[inputLayerSize * _network.Layers[0].Size()]);
+            for (var i = 0; i < _network.Layers.Count - 1; i++)
+                _weightPartialDerivatives.Add(new double[_network.Layers[i].Size() * _network.Layers[i + 1].Size()]);
+            
+            _biasPartialDerivatives = _network.Layers
+                .Select(l => new double[l.Neurons.Count])
                 .ToList();
         }
         
@@ -50,10 +61,24 @@ public partial class NeuralNetwork
                 var forwardResult = new ForwardResult(output, item.Expected);
                 var loss = _network._lossFunction(forwardResult);
                 
+                // Update training loss.
                 Monitor.Enter(_trainingLossLock);
                     _network._trainingLoss += loss;
                 Monitor.Exit(_trainingLossLock);
+                
+                Backpropagation(loss);
             }
+        }
+
+        private void Backpropagation(double loss)
+        {
+            // TODO
+            // - Precalculate all used partial derivatives [no weight/bias]
+            // - Using precalculated partial derivatives calculate derivatives of weights and biases.
+            
+            
+            // TODO send to neural net - partial derivatives of entire net.
+            // TODO net will do averages + weight & bias updates.
         }
         
         private void Forward(List<double> data)
@@ -97,7 +122,7 @@ public partial class NeuralNetwork
             }
         }
 
-        private void ResetForwardContext()
+        private void ResetForwardContext()  
         {
             for (var i = 0; i < _forwardContext.Count; i++)
             {
