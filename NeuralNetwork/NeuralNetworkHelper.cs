@@ -22,6 +22,22 @@ public static class NeuralNetworkHelper
         return result;
     }
     
+    public static (List<double[,]>, List<double[]>) CreateArraysForGradients(NeuralNetwork neuralNetwork)
+    {
+        var inputLayerSize = neuralNetwork.InputLayer.Size();
+        var weightGradients = new List<double[,]>();
+        
+        weightGradients.Add(new double[inputLayerSize, neuralNetwork.Layers[0].Size()]);
+        for (var i = 0; i < neuralNetwork.Layers.Count - 1; i++)
+            weightGradients.Add(new double[neuralNetwork.Layers[i].Size(), neuralNetwork.Layers[i + 1].Size()]);
+        
+        var biasGradients = neuralNetwork.Layers
+            .Select(l => new double[l.Size()])
+            .ToList();
+        
+        return (weightGradients, biasGradients);
+    }
+    
     public record TrainingItem(List<double> Input, List<double> Expected);
     public record ForwardResult(List<double> Output, List<double> Expected);
 

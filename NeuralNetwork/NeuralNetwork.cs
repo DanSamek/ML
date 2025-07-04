@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
-using ML.NeuralNetwork.ActivationFunctions;
 using ML.NeuralNetwork.Loader;
 using ML.NeuralNetwork.LossFunctions;
+using ML.NeuralNetwork.OutputReceiver;
 using static ML.NeuralNetwork.NeuralNetworkHelper;
 
 namespace ML.NeuralNetwork;
@@ -11,17 +11,25 @@ public partial class NeuralNetwork
     private LossFunctionBase _lossFunction = null!;
     public List<Layer> Layers { get; } = [];
     public InputLayer InputLayer { get; private set; } = null!;
-
     public Layer OutputLayer => Layers[^1];
-
+    
+    private IOutputReceiver? _outputReceiver;
     private DataLoader _dataLoader = null!;
-
     private readonly AutoResetEvent _notEmptyQueueEvent = new (false);
     private readonly AutoResetEvent _emptyQueueEvent = new (false);
     private readonly ConcurrentQueue<TrainingItem?> _queue = new();
     
     private int _waitingWorkers;
     private double _trainingLoss;
+    
+    /// <summary>
+    /// Sets the output receiver.
+    /// </summary>
+    public NeuralNetwork SetOutputReceiver(IOutputReceiver outputReceiver)
+    {
+        _outputReceiver = outputReceiver;
+        return this;
+    }
     
     /// <summary>
     /// Registers an input layer.
@@ -208,6 +216,8 @@ public partial class NeuralNetwork
         
         var (threads, workers) = RunWorkers(trainingOptions.NumberOfThreads);
         var totalLines = _dataLoader.CountLines();
+
+        var (weightGradients, biasGradients) = CreateArraysForGradients(this);
         
         for (var epoch = 1; epoch <= trainingOptions.NumEpochs; epoch++)
         {
@@ -236,11 +246,82 @@ public partial class NeuralNetwork
                 while (!_queue.IsEmpty)
                     _emptyQueueEvent.WaitOne();
                 
-                // TODO calculate gradients + update net weights.
+                _outputReceiver?.Loss(_trainingLoss);
+                
+                SumGradients(workers, weightGradients, biasGradients);
+                AverageGradients(weightGradients, biasGradients, currentBatchSize);
+                UpdateWeights(weightGradients, biasGradients, trainingOptions.LearningRate);
             }
         }
         
         StopWorkers(threads);
+    }
+    
+    private void UpdateWeights(List<double[,]> weightGradients, List<double[]> biasGradients, double learningRate)
+    {
+        // InputLayer -> HiddenLayer 
+        for (var i = 0; i < InputLayer.Features.Count; i++)
+        {
+            var weights = InputLayer.Features[i].Weights;
+            for (var j = 0; j < weights.Count; j++)
+                weights[j] -= learningRate * weightGradients[0][i,j];
+        }
+        
+        for (var i = 0; i < Layers[0].Size(); i++)
+            Layers[0].Neurons[i].Bias -= biasGradients[0][i];
+        
+        // Hidden layer -> Hidden layer.
+        for (var i = 0; i < Layers.Count - 1; i++)
+        {
+            for (var j = 0; j < Layers[i].Size(); j++)
+            {
+                var neuron = Layers[i].Neurons[j];
+                var weights = neuron.Weights;
+                
+                var totalWeights = weights.Count;
+                for (var w = 0; w < totalWeights; w++)
+                      weights[w] -= learningRate * weightGradients[i + 1][j, w];
+                
+                neuron.Bias -= biasGradients[i][j];
+            }
+        }
+    }
+    
+    private void SumGradients(List<Worker> workers, List<double[,]> weightGradients, List<double[]> biasGradients)
+    {
+        foreach (var worker in workers)
+        {
+            var inputLayerSize = InputLayer.Size();
+            for (var i = 0; i <  inputLayerSize; i++)
+                for (var j = 0; j < Layers[0].Size(); j++)
+                    weightGradients[0][i,j] += worker.WeightGradients[0][i,j];
+            
+            for (var i = 0; i < Layers.Count - 1; i++)
+                for (var j = 0; j < Layers[i].Size(); j++)
+                    for (var k = 0; k < Layers[i + 1].Size(); k++)
+                        weightGradients[i + 1][j, k] = worker.WeightGradients[i + 1][j, k];
+                    
+            for (var i = 0; i < worker.BiasGradients.Count; i++)
+                for (var l = 0; l < worker.BiasGradients[i].Length; l++)
+                    biasGradients[i][l] += worker.BiasGradients[i][l];
+        }
+    }
+    
+    private void AverageGradients(List<double[,]> weightGradients, List<double[]> biasGradients, int numberOfSamples)
+    {
+        var inputLayerSize = InputLayer.Size();
+        for (var i = 0; i <  inputLayerSize; i++)
+            for (var j = 0; j < Layers[0].Size(); j++)
+                weightGradients[0][i,j] /= numberOfSamples;
+            
+        for (var i = 0; i < Layers.Count - 1; i++)
+            for (var j = 0; j < Layers[i].Size(); j++)
+                for (var k = 0; k < Layers[i + 1].Size(); k++)
+                    weightGradients[i + 1][j, k] /= numberOfSamples;
+        
+        for (var i = 0; i < biasGradients.Count; i++)
+            for (var l = 0; l < biasGradients[i].Length; l++)
+                biasGradients[i][l] /= numberOfSamples;
     }
 
     private void StopWorkers(List<Thread> threads)
@@ -275,4 +356,6 @@ public partial class NeuralNetwork
         
         return (threads, workers);
     }
+
+    private void UpdateLoss(double loss) => _trainingLoss += loss;
 }
