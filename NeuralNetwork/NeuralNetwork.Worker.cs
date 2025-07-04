@@ -1,4 +1,5 @@
 namespace ML.NeuralNetwork;
+using static NeuralNetworkHelper;
 
 public partial class NeuralNetwork
 {
@@ -8,12 +9,14 @@ public partial class NeuralNetwork
     private class Worker{
         private readonly NeuralNetwork _network;
         private readonly List<(double[] Sums, double[] Activations)> _forwardContext;
-        private readonly List<double[]> _weightPartialDerivatives = [];
-        private readonly List<double[]> _biasPartialDerivatives = [];
+        
+        private readonly List<double[,]> _weightGradients = [];
+        private readonly List<double[]> _biasGradients = [];
+        private readonly List<double[]> _neuronGradiens = [];
         private readonly double[] _errors;
         
         private static readonly object _trainingLossLock = new();
-        private readonly int _id;
+        private readonly int _id; // Used for debugging mostly.
         
         public Worker(NeuralNetwork network, int id)
         {
@@ -25,12 +28,16 @@ public partial class NeuralNetwork
                 .ToList();
             
             var inputLayerSize = network.InputLayer.Size();
-            _weightPartialDerivatives.Add(new double[inputLayerSize * _network.Layers[0].Size()]);
+            _weightGradients.Add(new double[inputLayerSize, _network.Layers[0].Size()]);
             for (var i = 0; i < _network.Layers.Count - 1; i++)
-                _weightPartialDerivatives.Add(new double[_network.Layers[i].Size() * _network.Layers[i + 1].Size()]);
+                _weightGradients.Add(new double[_network.Layers[i].Size(), _network.Layers[i + 1].Size()]);
             
-            _biasPartialDerivatives = _network.Layers
-                .Select(l => new double[l.Neurons.Count])
+            _biasGradients = _network.Layers
+                .Select(l => new double[l.Size()])
+                .ToList();
+            
+            _neuronGradiens = _network.Layers
+                .Select(l => new double[l.Size()])
                 .ToList();
             
             _errors = new double [_network.Layers[^1].Size()];
@@ -62,15 +69,78 @@ public partial class NeuralNetwork
                 for (var i = 0; i < _network.Layers[^1].Size(); i++)
                     _errors[i] = _network._lossFunction.Value(_forwardContext[^1].Activations[i], item.Expected[i]);
                 
-                Backpropagate();
+                Backpropagate(item);
+            }
+        }
+        
+        private void CalculateNeuronGradients(List<double> expected)
+        {
+            var outputLayer = _network.OutputLayer;
+            var networkLossFunction = _network._lossFunction.Derivative;
+            
+            // dL/d ON = dL/dO * dO/dS 
+            for (var i = 0; i < outputLayer.Size(); i++)
+            {
+                // dL/dO
+                var lossDerivative = networkLossFunction(_forwardContext[^1].Activations[i], expected[i]);
+                
+                // dO/dS
+                var activationFunctionDerivative = _network.OutputLayer.ActivationFunction.Derivative(_forwardContext[^1].Sums[i]);
+                _neuronGradiens[^1][i] = lossDerivative * activationFunctionDerivative;
+            }
+            
+            for (var i = _network.Layers.Count - 2; i >= 0; i--)
+            {
+                var nextLayerIdx = i + 1;
+                var currentLayer = _network.Layers[i];
+                
+                // dL/Dn_i_j = Sum (k) ( _neuronGradient[i+1][k] * dNS / dCO * dCO/dCS  ) [NS = next sum, CO = current output, CS = current sum]
+                //                   -> (_neuronGradient[i+1][k] * w [weight] * activationFunctionDerivative(CS)) 
+                for (var j = 0; j < currentLayer.Size(); j++)
+                {
+                    var sum = 0.0;
+                    var neuron = currentLayer.Neurons[j];
+                    for (var k = 0; k < neuron.Weights.Count; k++)
+                    {
+                        sum += _neuronGradiens[nextLayerIdx][k] * neuron.Weights[k];
+                    }
+                    sum *= currentLayer.ActivationFunction.Derivative(_forwardContext[i].Sums[j]);
+                    _neuronGradiens[i][j] = sum;
+                }
+                
             }
         }
 
-        private void Backpropagate()
+        private void Backpropagate(TrainingItem item)
         {
-            // TODO
-            // - Precalculate all used partial derivatives [no weight/bias]
-            // - Using precalculated partial derivatives calculate derivatives of weights and biases.
+            CalculateNeuronGradients(item.Expected);
+            // NOTE: We do += for _weightGradients and _biasGradients.  
+            
+            // InputLayer -> FirstLayer
+            for (var i = 0; i < _network.InputLayer.Size(); i++)
+            {
+                var totalWeights = _network.InputLayer.Features[0].Weights.Count;
+                for (var w = 0; w < totalWeights; w++)
+                    _weightGradients[0][i, w] += _neuronGradiens[0][w] * item.Input[i];
+            }
+            
+            for (var i = 0; i < _network.Layers[0].Size(); i++)
+                _biasGradients[0][i] += _neuronGradiens[0][i];
+            
+            // All hidden layers
+            // for biases biasGradient[layerIdx][bidx] = _neuronGradiens[layerIdx][neuronIdx] * 1;
+            // for weights weightGradient[layerIdx][neuronIdx][widx] = _neuronGradiens[layerIdx + 1][neuronIdx] * sum[layerIdx][neuronIdx]
+            for (var i = 1; i < _network.Layers.Count - 1; i++)
+            {
+                var totalWeights = _network.Layers[i].Neurons[0].Weights.Count;
+                for (var j = 0; j < _network.Layers[i].Size(); j++)
+                {
+                    for (var w = 0; w < totalWeights; w++)
+                        _weightGradients[i][j, w] += _neuronGradiens[i + 1][w] * _forwardContext[i].Sums[j];
+                    
+                    _biasGradients[i][j] += _neuronGradiens[i][j];
+                }
+            }
             
             // TODO send to neural net - partial derivatives of entire net.
             // TODO net will do averages + weight & bias updates.

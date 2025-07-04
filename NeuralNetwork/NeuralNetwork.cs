@@ -11,7 +11,9 @@ public partial class NeuralNetwork
     private LossFunctionBase _lossFunction = null!;
     public List<Layer> Layers { get; } = [];
     public InputLayer InputLayer { get; private set; } = null!;
-    
+
+    public Layer OutputLayer => Layers[^1];
+
     private DataLoader _dataLoader = null!;
 
     private readonly AutoResetEvent _notEmptyQueueEvent = new (false);
