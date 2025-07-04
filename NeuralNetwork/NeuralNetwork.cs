@@ -189,26 +189,40 @@ public partial class NeuralNetwork
     /// <summary>
     /// Initializes neural network with random weights.
     /// </summary>
-    /// <param name="min">Minimum weight value.</param>
-    /// <param name="max">Maximum weight value.</param>
-    public void InitializeRandom(double min = -1, double max = 1)
+    public void InitializeRandom()
     {
-        foreach (var feature in InputLayer.Features)
+        for (var i = 0; i < InputLayer.Features.Count; i++)
         {
-            for (var i = 0; i < feature.Weights?.Count; i++)
-                feature.Weights[i] = RandomDouble();
+            var feature = InputLayer.Features[i];
+            for (var j = 0; j < feature.Weights.Count; j++)
+                feature.Weights[j] = RandomDouble(0);
         }
-        
-        foreach (var neuron in Layers.SelectMany(l => l.Neurons))
+
+        for (var i = 0; i < Layers.Count - 1; i++)
         {
-            neuron.Bias = RandomDouble();
-            for (var i = 0; i < neuron.Weights.Count; i++)
-                neuron.Weights[i] = RandomDouble();
+            var neurons = Layers[i].Neurons;
+            foreach (var neuron in neurons)
+            {
+                neuron.Bias = 0; // TODO
+
+                for (var j = 0; j < neuron.Weights.Count; j++)
+                    neuron.Weights[j] = RandomDouble(i + 1);
+            }
         }
         
         return;
-        // TODO randomize weights based on layer activation function.
-        double RandomDouble() => Random.Shared.NextDouble() * (Random.Shared.Next(0,1) == 0 ? min : max);
+
+        double RandomDouble(int layerIdx)
+        {
+            var last = Layers.Count - 1 == layerIdx;
+            var first = layerIdx == 0;
+            
+            var weightsIn = first ? InputLayer.Size() : Layers[layerIdx - 1].Size();
+            var weightsOut = last ? 0 : Layers[layerIdx + 1].Size();
+            
+            var rw = Layers[layerIdx].ActivationFunction.RandomWeight(weightsIn, last ? 0 : weightsOut);
+            return rw;
+        }
     }
     
     /// <summary>

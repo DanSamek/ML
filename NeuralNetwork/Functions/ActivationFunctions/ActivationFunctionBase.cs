@@ -17,4 +17,12 @@ public abstract class ActivationFunctionBase
         var derivative = (Value(x + H) - Value(x)) / H;
         return derivative;
     }
+    
+    /// <summary>
+    /// Generates random weight.
+    /// </summary>
+    /// <param name="inWeightCount">Number of inputs</param>
+    /// <param name="outWeightCount">Number of outputs.</param>
+    /// <returns></returns>
+    public abstract double RandomWeight(double inWeightCount, double outWeightCount);
 }

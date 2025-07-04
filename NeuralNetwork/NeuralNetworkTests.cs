@@ -63,6 +63,7 @@ public class NeuralNetworkTests
     private class TestFunction2 : ActivationFunctionBase
     {
         public override double Value(double x) => x;
+        public override double RandomWeight(double inWeightCount, double outWeightCount) => Random.Shared.NextDouble();
     }
     
     [Test]
@@ -126,6 +127,8 @@ public class NeuralNetworkTests
     private class TestActivationFunction : ActivationFunctionBase
     {
         public override double Value(double x) => x / 2;
+
+        public override double RandomWeight(double inWeightCount, double outWeightCount) => 0;
     }
     
     
@@ -233,7 +236,7 @@ public class NeuralNetworkTests
             .SetOutputReceiver(new ConsoleReceiver())
             .Build();
 
-        nn.InitializeRandom(0.00001, 0.5);
+        nn.InitializeRandom();
         var options = new TrainingOptions
         {
             LearningRate = 0.01,
@@ -296,7 +299,7 @@ public class NeuralNetworkTests
             .SetOutputReceiver(new ConsoleReceiver())
             .Build();
 
-        nn.InitializeRandom(0.00001, 0.5);
+        nn.InitializeRandom();
         var options = new TrainingOptions
         {
             LearningRate = 0.01,
@@ -307,5 +310,40 @@ public class NeuralNetworkTests
         
         nn.Train(options);
         File.Delete(dataFile);
+    }
+    
+    
+    [Test]
+    public void XORTrainingTest()
+    {
+        var dataFile = CreateFile(new List<List<double>>
+        {
+            new() { 0, 0, 0 },
+            new() { 0, 1, 1 },
+            new() { 1, 0, 1 },
+            new() { 1, 1, 0 },
+        });
+
+        
+        var nn = new NeuralNetwork()
+            .AddInputLayer(2)
+            .AddLayer(3, typeof(Tanh))
+            .AddLayer(1, typeof(Tanh))
+            .SetLossFunction(typeof(MSE))
+            .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 2)))
+            .SetOutputReceiver(new ConsoleReceiver())
+            .Build();
+
+        nn.InitializeRandom();
+        var options = new TrainingOptions
+        {
+            LearningRate = 0.1,
+            NumEpochs = 10000,
+            BatchSize = 4
+        };
+        
+        nn.Train(options);
+        File.Delete(dataFile);
+        
     }
 }

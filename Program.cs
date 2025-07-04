@@ -46,6 +46,8 @@ class Program
     private class SimpleActivationFunction : ActivationFunctionBase
     {
         public override double Value(double x) => x;
+
+        public override double RandomWeight(double inWeightCount, double outWeightCount) => Random.Shared.NextDouble();
     }
     
     public static void Main(string[] args)
