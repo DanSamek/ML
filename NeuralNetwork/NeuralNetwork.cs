@@ -196,7 +196,8 @@ public partial class NeuralNetwork
         }
         
         return;
-        double RandomDouble() => Random.Shared.NextDouble() * Random.Shared.Next(0,1) == 0 ? min : max;
+        // TODO randomize weights based on layer activation function.
+        double RandomDouble() => Random.Shared.NextDouble() * (Random.Shared.Next(0,1) == 0 ? min : max);
     }
     
     /// <summary>

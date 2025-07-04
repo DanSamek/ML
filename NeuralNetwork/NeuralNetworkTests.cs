@@ -200,36 +200,45 @@ public class NeuralNetworkTests
     {
         var dataFile = CreateFile(new List<List<double>>
         {
-            new() { 1, 2, 3, 50 },
-            new() { 5, 5, 3, -10 },
-            new() { 5, 5, 3, -19 },
-            new() { 5, 1, 3, 12 },
-            new() { 1, 0, 3, 79 },
-            new() { 1, 5, 3, 71 },
-            new() { 1, 1, 3, 5 },
+            new() { 1, 2, 3, 9 },
+            new() { 5, 5, 3, 1 },
+            new() { 5, 1, 3, 5 },
+            new() { 5, 1, 0, 10 },
+            new() { 1, 0, 3, 5 },
+            new() { 1, 5, 3, 3 },
             new() { 1, 2, 13, 7 },
             new() { 13, 2, 1, 0 },
             new() { 5, 0, 3, 3 },
-            new() { 5, 9, 1, -39 },
+            new() { 5, 9, 1, 3 },
+            new() { 13, 0, 1, 4 },
+            new() { 5, 9, 3, 6 },
+            new() { 9, 9, 9, 5 },
+            new() { 6, 2, 3, 3 },
+            new() { 1, 1, 0, 7 },
+            new() { 1, 5, 9, 8 },
+            new() { 10, 5, 3, 6 },
+            new() { 1, 5, 10, 7 },
+            new() { 1, 6, 1, 2 },
+            new() { 5, 0, 9, 9 },
         });
         
         // 3 -> 5 -> 3 -> 1 net
         var nn = new NeuralNetwork()
             .AddInputLayer(3)
-            .AddLayer(5, typeof(Sigmoid))
             .AddLayer(3, typeof(Sigmoid))
+            .AddLayer(2, typeof(RELU))
             .AddLayer(1, typeof(Identity))
             .SetLossFunction(typeof(MSE))
             .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 3)))
             .SetOutputReceiver(new ConsoleReceiver())
             .Build();
 
-        nn.InitializeRandom(-1.4,1.4);
+        nn.InitializeRandom(0.00001, 0.5);
         var options = new TrainingOptions
         {
             LearningRate = 0.01,
             NumEpochs = 500,
-            BatchSize = 12
+            BatchSize = 20
         };
         
         nn.Train(options);
