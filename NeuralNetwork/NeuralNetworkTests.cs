@@ -201,8 +201,8 @@ public class NeuralNetworkTests
         var dataFile = CreateFile(new List<List<double>>
         {
             new() { 1, 2, 3, 50 },
-            new() { 5, 5, 3, -50 },
-            new() { 5, 5, 3, -159 },
+            new() { 5, 5, 3, -10 },
+            new() { 5, 5, 3, -19 },
             new() { 5, 1, 3, 12 },
             new() { 1, 0, 3, 79 },
             new() { 1, 5, 3, 71 },
@@ -213,23 +213,23 @@ public class NeuralNetworkTests
             new() { 5, 9, 1, -39 },
         });
         
-        // 3 -> 2 -> 3 -> 1 net
+        // 3 -> 5 -> 3 -> 1 net
         var nn = new NeuralNetwork()
             .AddInputLayer(3)
-            .AddLayer(2, typeof(Sigmoid))
+            .AddLayer(5, typeof(Sigmoid))
             .AddLayer(3, typeof(Sigmoid))
             .AddLayer(1, typeof(Identity))
-            .SetLossFunction(typeof(MAE))
+            .SetLossFunction(typeof(MSE))
             .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 3)))
             .SetOutputReceiver(new ConsoleReceiver())
             .Build();
-        
-        nn.InitializeRandom(-1000,1000);
-        var options  = new TrainingOptions
+
+        nn.InitializeRandom(-1.4,1.4);
+        var options = new TrainingOptions
         {
-            LearningRate = 0.0001,
-            NumEpochs = 3,
-            BatchSize = 11
+            LearningRate = 0.01,
+            NumEpochs = 500,
+            BatchSize = 12
         };
         
         nn.Train(options);

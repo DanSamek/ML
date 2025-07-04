@@ -180,7 +180,7 @@ public partial class NeuralNetwork
     /// </summary>
     /// <param name="min">Minimum weight value.</param>
     /// <param name="max">Maximum weight value.</param>
-    public void InitializeRandom(int min = -10, int max = 10)
+    public void InitializeRandom(double min = -1, double max = 1)
     {
         foreach (var feature in InputLayer.Features)
         {
@@ -196,7 +196,7 @@ public partial class NeuralNetwork
         }
         
         return;
-        double RandomDouble() => Random.Shared.NextDouble() * Random.Shared.Next(min, max);
+        double RandomDouble() => Random.Shared.NextDouble() * Random.Shared.Next(0,1) == 0 ? min : max;
     }
     
     /// <summary>
@@ -249,9 +249,12 @@ public partial class NeuralNetwork
                 while (!_queue.IsEmpty)
                     _emptyQueueEvent.WaitOne();
                 
+                // TODO Split training data + validation data !.
+                // Basically _trainingLoss will be removed.
+                // From main thread we will run from validation set error calculation.
                 _outputReceiver?.Loss(_trainingLoss);
                 if (_trainingLoss == 0)
-                    break;
+                    continue;
                 
                 SumGradients(workers, weightGradients, biasGradients);
                 AverageGradients(weightGradients, biasGradients, currentBatchSize);
@@ -274,9 +277,6 @@ public partial class NeuralNetwork
                 weights[j] -= learningRate * weightGradients[0][i,j];
         }
         
-        for (var i = 0; i < Layers[0].Size(); i++)
-            Layers[0].Neurons[i].Bias -= biasGradients[0][i];
-        
         // Hidden layer -> Hidden layer.
         for (var i = 0; i < Layers.Count - 1; i++)
         {
@@ -289,7 +289,7 @@ public partial class NeuralNetwork
                 for (var w = 0; w < totalWeights; w++)
                       weights[w] -= learningRate * weightGradients[i + 1][j, w];
                 
-                neuron.Bias -= biasGradients[i][j];
+                neuron.Bias -= learningRate * biasGradients[i][j];
             }
         }
     }

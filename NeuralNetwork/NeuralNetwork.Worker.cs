@@ -124,9 +124,6 @@ public partial class NeuralNetwork
                     WeightGradients[0][i, w] += _neuronGradiens[0][w] * item.Input[i];
             }
             
-            for (var i = 0; i < _network.Layers[0].Size(); i++)
-                BiasGradients[0][i] += _neuronGradiens[0][i];
-            
             // All hidden layers
             // for biases biasGradient[layerIdx][bidx] = _neuronGradiens[layerIdx][neuronIdx] * 1;
             // for weights weightGradient[layerIdx][neuronIdx][widx] = _neuronGradiens[layerIdx + 1][neuronIdx] * sum[layerIdx][neuronIdx]
