@@ -54,15 +54,27 @@ public partial class NeuralNetwork
                 if (item is null)
                     break;
                 
+                //Console.WriteLine($"Worker {_id} is processing: {item.Input[0]}-{item.Expected[0]}");
+                
                 Forward(item.Input);
 
                 _trainingLossLock.Enter();
-                
-                    for (var i = 0; i < _network.Layers[^1].Size(); i++)
-                        _network.UpdateLoss(_network._lossFunction.Value(_forwardContext[^1].Activations[i], 
-                            item.Expected[i]));
+
+                for (var i = 0; i < _network.Layers[^1].Size(); i++)
+                {
+                    var loss = _network._lossFunction.Value(_forwardContext[^1].Activations[i],
+                        item.Expected[i]);
+                    if (item.Validation)
+                        _network.UpdateValidationLoss(loss);
+                    else 
+                        _network.UpdateTrainingLoss(loss);
+                }
                 
                 _trainingLossLock.Exit();
+                
+                // Don't backpropagate items from validation datasets. 
+                if (item.Validation)
+                    continue;
                 
                 Backpropagate(item);
             }

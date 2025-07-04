@@ -38,7 +38,7 @@ public static class NeuralNetworkHelper
         return (weightGradients, biasGradients);
     }
     
-    public record TrainingItem(List<double> Input, List<double> Expected);
+    public record TrainingItem(List<double> Input, List<double> Expected, bool Validation = false);
     public record ForwardResult(List<double> Output, List<double> Expected);
 
 }

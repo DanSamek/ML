@@ -8,5 +8,10 @@ public interface IOutputReceiver
     /// <summary>
     /// Receives a current loss.
     /// </summary>
-    public void Loss(double loss);
+    public void TrainingLoss(double loss);
+    
+    /// <summary>
+    /// Receives a validation loss.
+    /// </summary>
+    public void ValidationLoss(double loss);
 }

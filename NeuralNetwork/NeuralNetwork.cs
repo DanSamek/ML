@@ -15,12 +15,13 @@ public partial class NeuralNetwork
     
     private IOutputReceiver? _outputReceiver;
     private DataLoader _dataLoader = null!;
+    private DataLoader? _validationDataLoader;
     private readonly AutoResetEvent _notEmptyQueueEvent = new (false);
     private readonly AutoResetEvent _emptyQueueEvent = new (false);
     private readonly ConcurrentQueue<TrainingItem?> _queue = new();
     
     private int _waitingWorkers;
-    private double _trainingLoss;
+    private double _trainingLoss, _validationLoss;
     
     /// <summary>
     /// Sets the output receiver.
@@ -120,11 +121,21 @@ public partial class NeuralNetwork
     }
 
     /// <summary>
-    /// Sets data loader that will be used.
+    /// Sets data loader that will be used for training.
     /// </summary>
     public NeuralNetwork SetDataLoader(DataLoader dataLoader)
     {
         _dataLoader = dataLoader;
+        return this;
+    }
+
+    
+    /// <summary>
+    /// Sets data loader that will be used for validation-error.
+    /// </summary>
+    public NeuralNetwork SetValidationDataLoader(DataLoader dataLoader)
+    {
+        _validationDataLoader = dataLoader;
         return this;
     }
     
@@ -217,16 +228,19 @@ public partial class NeuralNetwork
         
         var (threads, workers) = RunWorkers(trainingOptions.NumberOfThreads);
         var totalLines = _dataLoader.CountLines();
-
-        var (weightGradients, biasGradients) = CreateArraysForGradients(this);
+        
         
         for (var epoch = 1; epoch <= trainingOptions.NumEpochs; epoch++)
         {
+            _dataLoader.ResetStream();
+            
             var total = 0;
             while (total < totalLines)
             {
                 foreach (var worker in workers)
                     worker.ClearGradients();
+                
+                var (weightGradients, biasGradients) = CreateArraysForGradients(this);
                 
                 _trainingLoss = 0;
                 var currentBatchSize = 0;
@@ -250,10 +264,8 @@ public partial class NeuralNetwork
                 while (!_queue.IsEmpty)
                     _emptyQueueEvent.WaitOne();
                 
-                // TODO Split training data + validation data !.
-                // Basically _trainingLoss will be removed.
-                // From main thread we will run from validation set error calculation.
-                _outputReceiver?.Loss(_trainingLoss);
+                _outputReceiver?.TrainingLoss(_trainingLoss);
+                
                 if (_trainingLoss == 0)
                     continue;
                 
@@ -261,12 +273,43 @@ public partial class NeuralNetwork
                 AverageGradients(weightGradients, biasGradients, currentBatchSize);
                 UpdateWeights(weightGradients, biasGradients, trainingOptions.LearningRate);
             }
-            _dataLoader.ResetStream();
             
+            CalculateValidationLoss();
         }
         
         StopWorkers(threads);
     }
+
+    private void CalculateValidationLoss()
+    {
+        if (_validationDataLoader is null)
+            return;
+        
+        _validationDataLoader?.ResetStream();
+        _validationLoss = 0;
+        
+        while (true)
+        {
+            var item = _validationDataLoader?.GetNext();
+            if (item is null)
+                break;
+            
+            item = item with
+            {
+                Validation = true
+            };
+            _queue.Enqueue(item);
+            _notEmptyQueueEvent.Set();
+        }
+        
+        while (!_queue.IsEmpty)
+            _emptyQueueEvent.WaitOne();
+        
+        _outputReceiver?.ValidationLoss(_validationLoss);
+    }
+    
+    private void UpdateTrainingLoss(double loss) => _trainingLoss += loss;
+    private void UpdateValidationLoss(double loss) => _validationLoss += loss;
     
     private void UpdateWeights(List<double[,]> weightGradients, List<double[]> biasGradients, double learningRate)
     {
@@ -307,7 +350,7 @@ public partial class NeuralNetwork
             for (var i = 0; i < Layers.Count - 1; i++)
                 for (var j = 0; j < Layers[i].Size(); j++)
                     for (var k = 0; k < Layers[i + 1].Size(); k++)
-                        weightGradients[i + 1][j, k] = worker.WeightGradients[i + 1][j, k];
+                        weightGradients[i + 1][j, k] += worker.WeightGradients[i + 1][j, k];
                     
             for (var i = 0; i < worker.BiasGradients.Count; i++)
                 for (var l = 0; l < worker.BiasGradients[i].Length; l++)
@@ -364,6 +407,4 @@ public partial class NeuralNetwork
         
         return (threads, workers);
     }
-
-    private void UpdateLoss(double loss) => _trainingLoss += loss;
 }
