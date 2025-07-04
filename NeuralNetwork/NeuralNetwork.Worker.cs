@@ -67,17 +67,22 @@ public partial class NeuralNetwork
                 Backpropagate(item);
             }
         }
+
+        internal void ClearGradients()
+        {
+            (WeightGradients, BiasGradients) =  CreateArraysForGradients(_network);
+            GC.Collect();
+        }
         
         private void CalculateNeuronGradients(List<double> expected)
         {
             var outputLayer = _network.OutputLayer;
-            var networkLossFunction = _network._lossFunction.Derivative;
             
             // dL/d ON = dL/dO * dO/dS 
             for (var i = 0; i < outputLayer.Size(); i++)
             {
                 // dL/dO
-                var lossDerivative = networkLossFunction(_forwardContext[^1].Activations[i], expected[i]);
+                var lossDerivative = _network._lossFunction.Derivative(_forwardContext[^1].Activations[i], expected[i]);
                 
                 // dO/dS
                 var activationFunctionDerivative = _network.OutputLayer.ActivationFunction.Derivative(_forwardContext[^1].Sums[i]);

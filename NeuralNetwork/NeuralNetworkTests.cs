@@ -2,6 +2,7 @@ using System.Text;
 using ML.NeuralNetwork.ActivationFunctions;
 using ML.NeuralNetwork.Loader;
 using ML.NeuralNetwork.LossFunctions;
+using ML.NeuralNetwork.OutputReceiver;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using static ML.NeuralNetwork.NeuralNetworkHelper;
@@ -187,6 +188,51 @@ public class NeuralNetworkTests
                 .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 3)));
             
         nn.Train(new TrainingOptions());
+        File.Delete(dataFile);
+    }
+    
+    
+    /// <summary>
+    /// Test if loss is somehow lower and lower.
+    /// </summary>
+    [Test]
+    public void BackPropagationTest()
+    {
+        var dataFile = CreateFile(new List<List<double>>
+        {
+            new() { 1, 2, 3, 50 },
+            new() { 5, 5, 3, -50 },
+            new() { 5, 5, 3, -159 },
+            new() { 5, 1, 3, 12 },
+            new() { 1, 0, 3, 79 },
+            new() { 1, 5, 3, 71 },
+            new() { 1, 1, 3, 5 },
+            new() { 1, 2, 13, 7 },
+            new() { 13, 2, 1, 0 },
+            new() { 5, 0, 3, 3 },
+            new() { 5, 9, 1, -39 },
+        });
+        
+        // 3 -> 2 -> 3 -> 1 net
+        var nn = new NeuralNetwork()
+            .AddInputLayer(3)
+            .AddLayer(2, typeof(Sigmoid))
+            .AddLayer(3, typeof(Sigmoid))
+            .AddLayer(1, typeof(Identity))
+            .SetLossFunction(typeof(MAE))
+            .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 3)))
+            .SetOutputReceiver(new ConsoleReceiver())
+            .Build();
+        
+        nn.InitializeRandom(-1000,1000);
+        var options  = new TrainingOptions
+        {
+            LearningRate = 0.0001,
+            NumEpochs = 3,
+            BatchSize = 11
+        };
+        
+        nn.Train(options);
         File.Delete(dataFile);
     }
 }

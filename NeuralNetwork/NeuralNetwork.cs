@@ -224,6 +224,9 @@ public partial class NeuralNetwork
             var total = 0;
             while (total < totalLines)
             {
+                foreach (var worker in workers)
+                    worker.ClearGradients();
+                
                 _trainingLoss = 0;
                 var currentBatchSize = 0;
                 // Load batch & Process batch.
@@ -247,11 +250,15 @@ public partial class NeuralNetwork
                     _emptyQueueEvent.WaitOne();
                 
                 _outputReceiver?.Loss(_trainingLoss);
+                if (_trainingLoss == 0)
+                    break;
                 
                 SumGradients(workers, weightGradients, biasGradients);
                 AverageGradients(weightGradients, biasGradients, currentBatchSize);
                 UpdateWeights(weightGradients, biasGradients, trainingOptions.LearningRate);
             }
+            _dataLoader.ResetStream();
+            
         }
         
         StopWorkers(threads);
