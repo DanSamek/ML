@@ -23,40 +23,6 @@ public class NeuralNetworkTests
         new () {5.1,5.2,5.5}
     };
     
-    private static string CreateFile(IReadOnlyList<List<double>> data)
-    {
-        var fileName = Guid.NewGuid().ToString();
-        var stringBuilder = new StringBuilder();
-        var lineSb = new StringBuilder();
-        
-        foreach (var item in data)
-        {
-            lineSb.Clear();
-            for (var i = 0; i < item.Count - 1; i++)
-                lineSb.Append($"{item[i]} ");
-            lineSb.Append(item[^1]);
-            
-            var line = lineSb.ToString();
-            stringBuilder.AppendLine(line);
-        }
-
-        var toSave = stringBuilder.ToString();
-        File.WriteAllText(fileName, toSave);
-        return fileName;
-    }
-    
-    private static TrainingItem Parse(string line, int inputSize)
-    {
-        var splitLine = line.Split(" ");
-        
-        var input = new List<double>();
-        for (var i = 0; i < inputSize; i++)
-            input.Add(double.Parse(splitLine[i]));
-        
-        List<double> expected = [double.Parse(splitLine[^1])];
-        var trainingItem = new TrainingItem(input, expected);
-        return trainingItem;
-    }
     
     private const string NN_NAME = "test.bin";
 
@@ -69,12 +35,12 @@ public class NeuralNetworkTests
     [Test]
     public void LoadTest()
     {
-        var dataFile = CreateFile(_loadTestData);
+        var dataFile = NeuralNetworkTestBase.CreateFile(_loadTestData);
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
             .AddLayer(1, typeof(TestFunction2))
             .SetLossFunction(typeof(MAE))
-            .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 2))) 
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2))) 
             .Build();
         
         nn.InitializeRandom();
@@ -130,6 +96,19 @@ public class NeuralNetworkTests
 
         public override double RandomWeight(double inWeightCount, double outWeightCount) => 0;
     }
+
+    private class SimpleForwardReceiver : IOutputReceiver
+    {
+        public void TrainingLoss(double loss)
+        {
+            Assert.That(loss == 0);
+        }
+
+        public void ValidationLoss(double loss)
+        {
+            throw new NotImplementedException();
+        }
+    }
     
     
     /// <summary>
@@ -139,7 +118,7 @@ public class NeuralNetworkTests
     [Test]
     public void SimpleForwardTest()
     {
-        var dataFile = CreateFile(new List<List<double>>
+        var dataFile = NeuralNetworkTestBase.CreateFile(new List<List<double>>
             {
                 new() { 1, 2, 3, 16.7125 },
             });
@@ -188,7 +167,8 @@ public class NeuralNetworkTests
                 .AddLayer(hiddenLayer2)
                 .AddLayer(outputLayer)
                 .SetLossFunction(typeof(MAE))
-                .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 3)));
+                .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3)))
+                .SetOutputReceiver(new SimpleForwardReceiver());
             
         nn.Train(new TrainingOptions());
         File.Delete(dataFile);
@@ -201,7 +181,7 @@ public class NeuralNetworkTests
     [Test]
     public void BackPropagationTest()
     {
-        var dataFile = CreateFile(new List<List<double>>
+        var dataFile = NeuralNetworkTestBase.CreateFile(new List<List<double>>
         {
             new() { 1, 2, 3, 9 },
             new() { 5, 5, 3, 1 },
@@ -232,7 +212,7 @@ public class NeuralNetworkTests
             .AddLayer(2, typeof(RELU))
             .AddLayer(1, typeof(Identity))
             .SetLossFunction(typeof(MSE))
-            .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 3)))
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3)))
             .SetOutputReceiver(new ConsoleReceiver())
             .Build();
 
@@ -248,7 +228,6 @@ public class NeuralNetworkTests
         File.Delete(dataFile);
     }
     
-    
     /// <summary>
     /// Check run with validation tests.
     /// </summary>
@@ -256,7 +235,7 @@ public class NeuralNetworkTests
     [TestCase(4)]
     public void ValidationDatasetTests(int numberOfThreads)
     {
-        var dataFile = CreateFile(new List<List<double>>
+        var dataFile = NeuralNetworkTestBase.CreateFile(new List<List<double>>
         {
             new() { 1, 2, 3, 9 },
             new() { 5, 5, 3, 1 },
@@ -280,7 +259,7 @@ public class NeuralNetworkTests
             new() { 5, 0, 9, 9 },
         });
 
-        var validationDataFile = CreateFile(new List<List<double>>
+        var validationDataFile = NeuralNetworkTestBase.CreateFile(new List<List<double>>
         {
             new() { 6, 0, 3, 1 },
             new() { 1, 5, 3, 2 },
@@ -294,8 +273,8 @@ public class NeuralNetworkTests
             .AddLayer(2, typeof(RELU))
             .AddLayer(1, typeof(Identity))
             .SetLossFunction(typeof(MSE))
-            .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 3)))
-            .SetValidationDataLoader(new DataLoader(validationDataFile, item => Parse(item, 3)))
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3)))
+            .SetValidationDataLoader(new DataLoader(validationDataFile, item => NeuralNetworkTestBase.Parse(item, 3)))
             .SetOutputReceiver(new ConsoleReceiver())
             .Build();
 
@@ -316,7 +295,7 @@ public class NeuralNetworkTests
     [Test]
     public void XORTrainingTest()
     {
-        var dataFile = CreateFile(new List<List<double>>
+        var dataFile = NeuralNetworkTestBase.CreateFile(new List<List<double>>
         {
             new() { 0, 0, 0 },
             new() { 0, 1, 1 },
@@ -327,10 +306,10 @@ public class NeuralNetworkTests
         
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
-            .AddLayer(3, typeof(Tanh))
+            .AddLayer(2, typeof(Tanh))
             .AddLayer(1, typeof(Tanh))
             .SetLossFunction(typeof(MSE))
-            .SetDataLoader(new DataLoader(dataFile, item => Parse(item, 2)))
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2)))
             .SetOutputReceiver(new ConsoleReceiver())
             .Build();
 
@@ -344,6 +323,5 @@ public class NeuralNetworkTests
         
         nn.Train(options);
         File.Delete(dataFile);
-        
     }
 }

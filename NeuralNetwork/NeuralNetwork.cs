@@ -246,7 +246,7 @@ public partial class NeuralNetwork
         
         for (var epoch = 1; epoch <= trainingOptions.NumEpochs; epoch++)
         {
-            _dataLoader.ResetStream();
+            _dataLoader.Reset();
             
             var total = 0;
             while (total < totalLines)
@@ -299,7 +299,7 @@ public partial class NeuralNetwork
         if (_validationDataLoader is null)
             return;
         
-        _validationDataLoader?.ResetStream();
+        _validationDataLoader?.Reset();
         _validationLoss = 0;
         
         while (true)
