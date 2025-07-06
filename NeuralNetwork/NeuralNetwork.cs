@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using ML.NeuralNetwork.Loader;
 using ML.NeuralNetwork.LossFunctions;
+using ML.NeuralNetwork.Optimizers;
 using ML.NeuralNetwork.OutputReceiver;
 using static ML.NeuralNetwork.NeuralNetworkHelper;
 
@@ -8,17 +9,22 @@ namespace ML.NeuralNetwork;
 
 public partial class NeuralNetwork
 {
-    private LossFunctionBase _lossFunction = null!;
     public List<Layer> Layers { get; } = [];
     public InputLayer InputLayer { get; private set; } = null!;
     public Layer OutputLayer => Layers[^1];
     
+    private LossFunctionBase _lossFunction = null!;
     private IOutputReceiver? _outputReceiver;
     private DataLoader _dataLoader = null!;
     private DataLoader? _validationDataLoader;
     private readonly AutoResetEvent _notEmptyQueueEvent = new (false);
     private readonly AutoResetEvent _emptyQueueEvent = new (false);
     private readonly ConcurrentQueue<TrainingItem?> _queue = new();
+    
+    private IOptimizer _optimizer = new NoOpt
+    {
+        Configuration = new NoOpt.Config()
+    };
     
     private int _waitingWorkers;
     private double _trainingLoss, _validationLoss;
@@ -128,7 +134,6 @@ public partial class NeuralNetwork
         _dataLoader = dataLoader;
         return this;
     }
-
     
     /// <summary>
     /// Sets data loader that will be used for validation-error.
@@ -136,6 +141,16 @@ public partial class NeuralNetwork
     public NeuralNetwork SetValidationDataLoader(DataLoader dataLoader)
     {
         _validationDataLoader = dataLoader;
+        return this;
+    }
+    
+    /// <summary>
+    /// Sets optimizer that will be used.
+    /// Default is set to <see cref="NoOpt"/>
+    /// </summary>
+    public NeuralNetwork SetOptimizer(IOptimizer optimizer)
+    {
+        _optimizer = optimizer;
         return this;
     }
     
@@ -228,7 +243,7 @@ public partial class NeuralNetwork
     /// <summary>
     /// If quantization will be used when it saves/loads neural network.
     /// </summary>
-    public void UseQuantization()
+    public void UseQuantization(/*TODO quantization options*/)
     {
         // TODO.
     }

@@ -2,6 +2,7 @@ using System.Text;
 using ML.NeuralNetwork.ActivationFunctions;
 using ML.NeuralNetwork.Loader;
 using ML.NeuralNetwork.LossFunctions;
+using ML.NeuralNetwork.Optimizers;
 using ML.NeuralNetwork.OutputReceiver;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
@@ -303,7 +304,11 @@ public class NeuralNetworkTests
             new() { 1, 1, 0 },
         });
 
-        
+        var adam = new Adam
+        {
+            Configuration = new Adam.Config()
+        };
+
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
             .AddLayer(2, typeof(Tanh))
@@ -311,6 +316,7 @@ public class NeuralNetworkTests
             .SetLossFunction(typeof(MSE))
             .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2)))
             .SetOutputReceiver(new ConsoleReceiver())
+            .SetOptimizer(adam)
             .Build();
 
         nn.InitializeRandom();
