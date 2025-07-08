@@ -17,13 +17,15 @@ public partial class NeuralNetwork
     private IOutputReceiver? _outputReceiver;
     private DataLoader _dataLoader = null!;
     private DataLoader? _validationDataLoader;
+    private IOptimizer[] _optimizers = null!; 
+    
     private readonly AutoResetEvent _notEmptyQueueEvent = new (false);
     private readonly AutoResetEvent _emptyQueueEvent = new (false);
     private readonly ConcurrentQueue<TrainingItem?> _queue = new();
     
-    private IOptimizer _optimizer = new NoOpt
+    private IOptimizer _optimizer = new Simple
     {
-        Configuration = new NoOpt.Config()
+        Configuration = new Simple.Config()
     };
     
     private int _waitingWorkers;
@@ -257,7 +259,7 @@ public partial class NeuralNetwork
         
         var (threads, workers) = RunWorkers(trainingOptions.NumberOfThreads);
         var totalLines = _dataLoader.CountLines();
-        
+        InitOptimizers();
         
         for (var epoch = 1; epoch <= trainingOptions.NumEpochs; epoch++)
         {
@@ -300,7 +302,7 @@ public partial class NeuralNetwork
                 
                 SumGradients(workers, weightGradients, biasGradients);
                 AverageGradients(weightGradients, biasGradients, currentBatchSize);
-                UpdateWeights(weightGradients, biasGradients, trainingOptions.LearningRate);
+                UpdateWeights(weightGradients, biasGradients);
             }
             
             CalculateValidationLoss();
@@ -340,18 +342,19 @@ public partial class NeuralNetwork
     private void UpdateTrainingLoss(double loss) => _trainingLoss += loss;
     private void UpdateValidationLoss(double loss) => _validationLoss += loss;
     
-    private void UpdateWeights(List<double[,]> weightGradients, List<double[]> biasGradients, double learningRate)
+    private void UpdateWeights(List<double[,]> weightGradients, List<double[]> biasGradients)
     {
+        var optimizerIndex = 0;
         // InputLayer -> HiddenLayer 
         for (var i = 0; i < InputLayer.Features.Count; i++)
         {
             var weights = InputLayer.Features[i].Weights;
             for (var j = 0; j < weights.Count; j++)
-                weights[j] -= learningRate * weightGradients[0][i,j];
+                weights[j] = _optimizers[optimizerIndex++].Update(weights[j], weightGradients[0][i,j]);
         }
         
         // Hidden layer -> Hidden layer.
-        for (var i = 0; i < Layers.Count - 1; i++)
+        for (var i = 0; i < Layers.Count; i++)
         {
             for (var j = 0; j < Layers[i].Size(); j++)
             {
@@ -360,9 +363,9 @@ public partial class NeuralNetwork
                 
                 var totalWeights = weights.Count;
                 for (var w = 0; w < totalWeights; w++)
-                      weights[w] -= learningRate * weightGradients[i + 1][j, w];
+                      weights[w] = _optimizers[optimizerIndex++].Update(weights[w], weightGradients[i + 1][j, w]);
                 
-                neuron.Bias -= learningRate * biasGradients[i][j];
+                neuron.Bias = _optimizers[optimizerIndex++].Update(neuron.Bias, biasGradients[i][j]);
             }
         }
     }
@@ -417,7 +420,21 @@ public partial class NeuralNetwork
             thread.Join();
         }
     }
+    
+    private void InitOptimizers()
+    {
+        var size = InputLayer.Size() * Layers[0].Size();
 
+        for (var i = 0; i < Layers.Count - 1; i++)
+            size += Layers[i].Size() *  Layers[i + 1].Size();
+
+        size += Layers.Sum(i => i.Size());
+        
+        _optimizers = new IOptimizer[size];
+        for (var i = 0; i < size; i++)
+            _optimizers[i] = _optimizer.Clone();
+    }
+    
     private (List<Thread> threads, List<Worker> workers) RunWorkers(int numberOfThreads)
     {
         var threads = new List<Thread>();

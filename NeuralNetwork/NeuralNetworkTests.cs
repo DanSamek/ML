@@ -220,7 +220,6 @@ public class NeuralNetworkTests
         nn.InitializeRandom();
         var options = new TrainingOptions
         {
-            LearningRate = 0.01,
             NumEpochs = 500,
             BatchSize = 5
         };
@@ -282,7 +281,6 @@ public class NeuralNetworkTests
         nn.InitializeRandom();
         var options = new TrainingOptions
         {
-            LearningRate = 0.01,
             NumEpochs = 500,
             BatchSize = 5,
             NumberOfThreads = numberOfThreads
@@ -291,7 +289,14 @@ public class NeuralNetworkTests
         nn.Train(options);
         File.Delete(dataFile);
     }
-    
+
+
+    private class TanhX : Tanh
+    {
+        private int counter = 0;
+        public override double RandomWeight(double inWeightCount, double outWeightCount)
+        => Random.Shared.NextDouble() * Random.Shared.Next(-3, 3);
+    }
     
     [Test]
     public void XORTrainingTest()
@@ -309,20 +314,28 @@ public class NeuralNetworkTests
             Configuration = new Adam.Config()
         };
 
+        var simple = new Simple
+        {
+            Configuration = new Simple.Config
+            {
+                LearningRate = 0.1
+            }
+        };
+        
+
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
-            .AddLayer(2, typeof(Tanh))
-            .AddLayer(1, typeof(Tanh))
+            .AddLayer(2, typeof(TanhX))
+            .AddLayer(1, typeof(TanhX))
             .SetLossFunction(typeof(MSE))
             .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2)))
             .SetOutputReceiver(new ConsoleReceiver())
-            .SetOptimizer(adam)
+            .SetOptimizer(simple) // Current loss: 2.7499540607822275  -> Current loss: 0.007501592326721322 [its about luck with weights random initialization.]
             .Build();
-
+        
         nn.InitializeRandom();
         var options = new TrainingOptions
         {
-            LearningRate = 0.1,
             NumEpochs = 10000,
             BatchSize = 4
         };

@@ -54,8 +54,6 @@ public partial class NeuralNetwork
                 if (item is null)
                     break;
                 
-                //Console.WriteLine($"Worker {_id} is processing: {item.Input[0]}-{item.Expected[0]}");
-                
                 Forward(item.Input);
 
                 _trainingLossLock.Enter();
@@ -139,7 +137,7 @@ public partial class NeuralNetwork
             // All hidden layers
             // for biases biasGradient[layerIdx][bidx] = _neuronGradiens[layerIdx][neuronIdx] * 1;
             // for weights weightGradient[layerIdx][neuronIdx][widx] = _neuronGradiens[layerIdx + 1][neuronIdx] * sum[layerIdx][neuronIdx]
-            for (var i = 0; i < _network.Layers.Count - 1; i++)
+            for (var i = 0; i < _network.Layers.Count; i++)
             {
                 var currentLayer = _network.Layers[i];
                 var totalWeights = currentLayer.Neurons[0].Weights.Count;

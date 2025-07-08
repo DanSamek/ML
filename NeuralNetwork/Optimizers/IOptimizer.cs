@@ -6,10 +6,16 @@ namespace ML.NeuralNetwork.Optimizers;
 public interface IOptimizer
 {
     /// <summary>
-    /// Updates weight with some optimization technique.
+    /// Updates param with some optimization technique.
     /// </summary>
-    /// <param name="gradient">Gradient for weight.</param>
-    /// <param name="weight">Weight.</param>
+    /// <param name="parameter">Parameter (Weight, bias).</param>
+    /// <param name="gradient">Gradient for the parameter.</param>
     /// <returns></returns>
-    public double Update(double gradient, double weight);
+    public double Update(double parameter, double gradient);
+    
+    /// <summary>
+    /// Clones an current instance.  
+    /// </summary>
+    /// <returns></returns>
+    public IOptimizer Clone();
 }

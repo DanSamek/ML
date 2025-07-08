@@ -10,7 +10,7 @@ public class Adam : IOptimizer
         public double Alpha { get; init; } = 0.001;
         public double Beta1 { get; init; } = 0.9;
         public double Beta2 { get; init; } = 0.999;
-        public double Epsilon { get; init; } = 10e-8;
+        public double Epsilon { get; init; } = 1e-8;
     }
     
     public required Config Configuration { get; init; }
@@ -18,7 +18,7 @@ public class Adam : IOptimizer
     private double _momentum, _velocity;
     private double _beta1T = 1,  _beta2T = 1;
     
-    public double Update(double gradient, double weight)
+    public double Update(double parameter, double gradient)
     {
         _momentum = Beta1 * _momentum + (1 - Beta1) * gradient;
         _velocity = Beta2 * _velocity + (1 - Beta2) * double.Pow(gradient, 2);
@@ -28,7 +28,16 @@ public class Adam : IOptimizer
         var corrMomentum = _momentum / (1 - _beta1T); 
         var corrVelocity = _velocity / (1 - _beta2T);
         
-        var result = weight - Alpha * corrMomentum / (double.Sqrt(corrVelocity) + Epsilon);
+        var result = parameter - Alpha * corrMomentum / (double.Sqrt(corrVelocity) + Epsilon);
+        return result;
+    }
+
+    public IOptimizer Clone()
+    {
+        var result = new Adam
+        {
+            Configuration = Configuration,
+        };
         return result;
     }
     
