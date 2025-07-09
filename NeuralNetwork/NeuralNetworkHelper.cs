@@ -2,17 +2,6 @@ namespace ML.NeuralNetwork;
 
 public static class NeuralNetworkHelper
 {
-    /// <summary>
-    /// Used definition:
-    /// lim h->0 f(x + h) - f(x) / h.
-    /// </summary>
-    public static double Derivative(Func<double, double> function, double x)
-    {
-        const double h = 0.000001;
-        var derivative = (function(x + h) - function(x)) / h;
-        return derivative;
-    }
-
     public static List<T> InitListWithNItems<T>(int n) where T : new()
     {
         var result = new List<T>();
@@ -37,6 +26,11 @@ public static class NeuralNetworkHelper
         
         return (weightGradients, biasGradients);
     }
+    
+    // q_val = round(value / scale), scale = max(|w|) / scale.
+    public static int QuantizedValue(double value, double scale) => (int)double.Round(value / scale);
+    public static double Scale(double max, double q) => max / q;
+    
     
     public record TrainingItem(List<double> Input, List<double> Expected, bool Validation = false);
     public record ForwardResult(List<double> Output, List<double> Expected);

@@ -17,7 +17,8 @@ public partial class NeuralNetwork
     private IOutputReceiver? _outputReceiver;
     private DataLoader _dataLoader = null!;
     private DataLoader? _validationDataLoader;
-    private IOptimizer[] _optimizers = null!; 
+    private IOptimizer[] _optimizers = null!;
+    private List<double> _scales = [];
     
     private readonly AutoResetEvent _notEmptyQueueEvent = new (false);
     private readonly AutoResetEvent _emptyQueueEvent = new (false);
@@ -109,7 +110,7 @@ public partial class NeuralNetwork
     
     /// <summary>
     /// "Connects" entire neural network.
-    /// NOTE: Can be used only if <see cref="AddLayer(int,System.Func{double,double})"/> and <see cref="AddInputLayer(int)"/> was used.
+    /// NOTE: Can be used only if <see cref="AddLayer(int,System.Type)"/> and <see cref="AddInputLayer(int)"/> was used.
     /// </summary>
     /// <returns></returns>
     /// <exception cref="Exception">If input layer is not set, or output layer is not set.</exception>
@@ -148,11 +149,21 @@ public partial class NeuralNetwork
     
     /// <summary>
     /// Sets optimizer that will be used.
-    /// Default is set to <see cref="NoOpt"/>
+    /// Default is set to <see cref="Simple"/>
     /// </summary>
     public NeuralNetwork SetOptimizer(IOptimizer optimizer)
     {
         _optimizer = optimizer;
+        return this;
+    }
+
+    /// <summary>
+    /// If quantization will be used when it saves/loads neural network.
+    /// Weight quantization per layer is used.
+    /// </summary>
+    public NeuralNetwork UseQuantization(List<double> scales)
+    {
+        _scales = scales;
         return this;
     }
     
@@ -166,19 +177,11 @@ public partial class NeuralNetwork
     /// <param name="path">Path where it should be saved.</param>
     public void Save(string path)
     {
-        using var binaryStream = new BinaryWriter(File.Open(path, FileMode.Create));
-        foreach (var weight in InputLayer.Features.SelectMany(feature => feature.Weights))
-            binaryStream.Write(weight);
-        
-        foreach (var neuron in Layers.SelectMany(l => l.Neurons))
-        {
-            binaryStream.Write(neuron.Bias);
-            foreach (var weight in neuron.Weights)
-                binaryStream.Write(weight);
-        }
-        binaryStream.Close();
+        var useQuantization = _scales.Count != 0;
+        if (useQuantization) SaveQuantized(path);
+        else SaveNormal(path);
     }
-    
+
     /// <summary>
     /// Loads neural network.
     /// For format <see cref="Save"/>
@@ -186,21 +189,9 @@ public partial class NeuralNetwork
     /// <param name="path">Path of the file where are the weights.</param>
     public void Load(string path)
     {
-        using var binaryStream = new BinaryReader(File.Open(path, FileMode.Open));
-        foreach (var feature in InputLayer.Features)
-        {
-            for (var i = 0; i < feature.Weights.Count; i++)
-                feature.Weights[i] = binaryStream.ReadDouble();
-        }
-        
-        foreach (var neuron in Layers.SelectMany(l => l.Neurons))
-        {
-            neuron.Bias = binaryStream.ReadDouble();
-            for (var i = 0; i < neuron.Weights.Count; i++)
-                neuron.Weights[i] = binaryStream.ReadDouble();
-        }
-        
-        binaryStream.Close();
+        var useQuantization = _scales.Count != 0;
+        if (useQuantization) LoadQuantized(path);
+        else LoadNormal(path);
     }
     
     /// <summary>
@@ -240,14 +231,6 @@ public partial class NeuralNetwork
             var rw = Layers[layerIdx].ActivationFunction.RandomWeight(weightsIn, last ? 0 : weightsOut);
             return rw;
         }
-    }
-    
-    /// <summary>
-    /// If quantization will be used when it saves/loads neural network.
-    /// </summary>
-    public void UseQuantization(/*TODO quantization options*/)
-    {
-        // TODO.
     }
     
     /// <summary>
@@ -453,4 +436,5 @@ public partial class NeuralNetwork
         
         return (threads, workers);
     }
+    
 }
