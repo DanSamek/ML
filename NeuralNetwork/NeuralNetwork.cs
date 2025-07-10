@@ -21,6 +21,7 @@ public partial class NeuralNetwork
     private List<double> _scales = [];
     
     private readonly AutoResetEvent _notEmptyQueueEvent = new (false);
+    private readonly AutoResetEvent _freeSpaceInQueueEvent = new (false);
     private readonly AutoResetEvent _emptyQueueEvent = new (false);
     private readonly ConcurrentQueue<TrainingItem?> _queue = new();
     
@@ -238,6 +239,8 @@ public partial class NeuralNetwork
     /// </summary>
     public void Train(TrainingOptions trainingOptions)
     {
+        const int MAX_ITEMS_IN_QUEUE = 100; // TODO make it more dynamic based on data sizes and user memory ?
+        
         ArgumentNullException.ThrowIfNull(_lossFunction);
         
         var (threads, workers) = RunWorkers(trainingOptions.NumberOfThreads);
@@ -264,11 +267,15 @@ public partial class NeuralNetwork
                     if (currentBatchSize >= trainingOptions.BatchSize)
                         break;
 
+                    while (_queue.Count >= MAX_ITEMS_IN_QUEUE)
+                        _freeSpaceInQueueEvent.WaitOne();
+                    
                     var item = _dataLoader.GetNext();
                     if (item is null)
                         break;
                     
                     _queue.Enqueue(item);
+                    
                     _notEmptyQueueEvent.Set();
                     
                     total++;

@@ -255,13 +255,18 @@ public class NeuralNetworkTests
         nn.Train(new TrainingOptions());
         File.Delete(dataFile);
     }
-    
+
     
     /// <summary>
     /// Test if loss is somehow lower and lower.
     /// </summary>
     [Test]
-    public void BackPropagationTest()
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(4)]
+    [TestCase(8)]
+    [TestCase(16)]
+    public void BackPropagationTest(int numberOfThreads)
     {
         var dataFile = NeuralNetworkTestBase.CreateFile(new List<List<double>>
         {
@@ -287,25 +292,66 @@ public class NeuralNetworkTests
             new() { 5, 0, 9, 9 },
         });
         
+        
+        var inputLayer = new InputLayer(3)
+        {
+            Features =
+            [
+                new Feature { Weights = [2, 1] },
+                new Feature { Weights = [3, 1.5] },
+                new Feature { Weights = [2, 4] }
+            ]
+        };
+        
+        var hiddenLayer1 = new Layer (2, typeof(TestActivationFunction))
+        {
+            Neurons = 
+            [
+                new Neuron { Bias = 0, Weights = [2, 2.5, 0] },
+                new Neuron { Bias = 1, Weights = [2, 1.5, 1] }
+            ]
+        };
+
+        var hiddenLayer2 = new Layer(3, typeof(TestActivationFunction))
+        {
+            Neurons = 
+            [
+                new Neuron { Bias = 1, Weights = [0.3] },
+                new Neuron { Bias = 2, Weights = [1] },
+                new Neuron { Bias = 3, Weights = [2] }
+            ]
+        };
+
+        var outputLayer = new Layer(1, typeof(TestActivationFunction))
+        {
+            Neurons =
+            [
+                new Neuron { Bias = 1 }
+            ]
+        };
+        
         // 3 -> 5 -> 3 -> 1 net
         var nn = new NeuralNetwork()
-            .AddInputLayer(3)
-            .AddLayer(3, typeof(Sigmoid))
-            .AddLayer(2, typeof(RELU))
-            .AddLayer(1, typeof(Identity))
+            .AddInputLayer(inputLayer)
+            .AddLayer(hiddenLayer1)
+            .AddLayer(hiddenLayer2)
+            .AddLayer(outputLayer)
             .SetLossFunction(typeof(MSE))
             .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3)))
             .SetOutputReceiver(new ConsoleReceiver())
-            .Build();
+            .SetOptimizer(new Adam
+            {
+                Configuration = new Adam.Config()
+            });
 
-        nn.InitializeRandom();
         var options = new TrainingOptions
         {
-            NumEpochs = 500,
-            BatchSize = 5
+            NumEpochs = 200,
+            BatchSize = 10,
+            NumberOfThreads = numberOfThreads
         };
-        
         nn.Train(options);
+        
         File.Delete(dataFile);
     }
     

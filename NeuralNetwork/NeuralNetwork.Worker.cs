@@ -53,6 +53,8 @@ public partial class NeuralNetwork
                 // null = stop
                 if (item is null)
                     break;
+
+                _network._freeSpaceInQueueEvent.Set();
                 
                 Forward(item.Input);
 
