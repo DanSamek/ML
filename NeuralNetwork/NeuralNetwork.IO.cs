@@ -6,47 +6,47 @@ public partial class NeuralNetwork
 {
     private void SaveQuantized(string path)
     {
-        using var binaryStream = new BinaryWriter(File.Open(path, FileMode.Create));
+        using var binaryWriter = new BinaryWriter(File.Open(path, FileMode.Create));
         Span<double> calculatedScales = stackalloc double[_scales.Count];
         CalculateScales(calculatedScales);
         
         foreach (var weight in InputLayer.Features.SelectMany(feature => feature.Weights))
-            binaryStream.Write(QuantizedValue(weight, calculatedScales[0]));
+            binaryWriter.Write(QuantizedValue(weight, calculatedScales[0]));
         
         for (var i = 0; i < Layers.Count; i++)
         {
             foreach (var neuron in Layers[i].Neurons)
             {
-                binaryStream.Write(QuantizedValue(neuron.Bias, calculatedScales[i]));
+                binaryWriter.Write(QuantizedValue(neuron.Bias, calculatedScales[i]));
                 foreach (var weight in neuron.Weights)
-                    binaryStream.Write(QuantizedValue(weight, calculatedScales[i + 1]));
+                    binaryWriter.Write(QuantizedValue(weight, calculatedScales[i + 1]));
             }
         }
     }
     
     private void LoadQuantized(string path)
     {
-        using var binaryStream = new BinaryReader(File.Open(path, FileMode.Open));
+        using var binaryReader = new BinaryReader(File.Open(path, FileMode.Open));
         Span<double> calculatedScales = stackalloc double[_scales.Count];
         CalculateScales(calculatedScales);
         
         foreach (var feature in InputLayer.Features)
         {
             for (var i = 0; i < feature.Weights.Count; i++)
-                feature.Weights[i] = binaryStream.ReadInt32() * calculatedScales[0];
+                feature.Weights[i] = binaryReader.ReadInt32() * calculatedScales[0];
         }
 
         for (var i = 0; i < Layers.Count; i++)
         {
             foreach (var neuron in Layers[i].Neurons)
             {
-                neuron.Bias = binaryStream.ReadInt32() * calculatedScales[i];
-                for (var j = 0; i < neuron.Weights.Count; i++)
-                    neuron.Weights[j] = binaryStream.ReadInt32() * calculatedScales[i + 1];
+                neuron.Bias = binaryReader.ReadInt32() * calculatedScales[i];
+                for (var j = 0; j < neuron.Weights.Count; j++)
+                    neuron.Weights[j] = binaryReader.ReadInt32() * calculatedScales[i + 1];
             }
         }
         
-        binaryStream.Close();
+        binaryReader.Close();
     }
 
     private void SaveNormal(string path)

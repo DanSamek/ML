@@ -13,7 +13,7 @@ namespace ML.NeuralNetwork;
 [TestFixture]
 public class NeuralNetworkTests
 {
-    private readonly IReadOnlyList<List<double>> _loadTestData = new List<List<double>>
+    private readonly IReadOnlyList<List<double>> _IOTestData = new List<List<double>>
     {
         new () {0.5,-0.5,0.4},
         new () {1,1.9,1.14},
@@ -32,20 +32,9 @@ public class NeuralNetworkTests
         public override double Value(double x) => x;
         public override double RandomWeight(double inWeightCount, double outWeightCount) => Random.Shared.NextDouble();
     }
-    
-    [Test]
-    public void LoadTest()
+
+    private (InputLayer InputLayer, List<Layer> Layers) CopyNet(NeuralNetwork nn)
     {
-        var dataFile = NeuralNetworkTestBase.CreateFile(_loadTestData);
-        var nn = new NeuralNetwork()
-            .AddInputLayer(2)
-            .AddLayer(1, typeof(TestFunction2))
-            .SetLossFunction(typeof(MAE))
-            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2))) 
-            .Build();
-        
-        nn.InitializeRandom();
-        
         // Copy entire net.
         var inputLayer = new InputLayer(nn.InputLayer.Size());
         for (var i = 0; i < inputLayer.Size(); i++)
@@ -62,6 +51,28 @@ public class NeuralNetworkTests
             }
             layers.Add(newLayer);
         }
+        return (inputLayer, layers);
+    }
+    
+    /// <summary>
+    /// Load & save test.
+    /// </summary>
+    [Test]
+    public void IOTest()
+    {
+        var dataFile = NeuralNetworkTestBase.CreateFile(_IOTestData);
+        var nn = new NeuralNetwork()
+            .AddInputLayer(2)
+            .AddLayer(2, typeof(TestFunction2))
+            .AddLayer(3, typeof(TestFunction2))
+            .AddLayer(1, typeof(TestFunction2))
+            .SetLossFunction(typeof(MAE))
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2))) 
+            .Build();
+        
+        nn.InitializeRandom();
+
+        var (inputLayer, layers) = CopyNet(nn);
         
         // Save & load
         nn.Save(NN_NAME);
@@ -89,6 +100,76 @@ public class NeuralNetworkTests
         // Cleanup
         File.Delete(dataFile);
         File.Delete(NN_NAME);
+    }
+
+    
+    private class IOQuantReceiver : IOutputReceiver
+    {
+        internal double LastTrainingLoss { get; private set; }
+        internal  double LastValidationLoss { get; private set; }
+        
+        public void TrainingLoss(double loss)  => LastTrainingLoss = loss;
+
+        public void ValidationLoss(double loss) => LastValidationLoss = loss;
+    }
+    
+    /// <summary>
+    /// Load & save test with quantized weights.
+    /// </summary>
+    [Test]
+    [Repeat(1000, true)]
+    public void IOQuantizedTest()
+    {
+        var dataFile = NeuralNetworkTestBase.CreateFile(_IOTestData);
+        var reciever = new IOQuantReceiver();
+        var nn = new NeuralNetwork()
+            .AddInputLayer(2)
+            .AddLayer(2, typeof(TestFunction2))
+            .AddLayer(3, typeof(TestFunction2))
+            .AddLayer(1, typeof(TestFunction2))
+            .SetLossFunction(typeof(MAE))
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2)))
+            .SetValidationDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2)))
+            .SetOutputReceiver(reciever)
+            .UseQuantization([8, 8, 8])
+            .Build();
+        
+        nn.InitializeRandom();
+        
+        var (inputLayer, layers) = CopyNet(nn);
+        
+        nn.Save(NN_NAME);
+        nn.Load(NN_NAME);
+        
+        Assert.That(layers != nn.Layers);
+        Assert.That(inputLayer != nn.InputLayer);
+        
+        // Validate
+        for (var i = 0; i < nn.InputLayer.Size(); i++){
+            for (var j = 0; j < nn.InputLayer.Features[i].Weights.Count; j++)
+            {
+                Assert.That(double.Abs(nn.InputLayer.Features[i].Weights[j] - inputLayer.Features[i].Weights[j]) < 0.1);   
+            }
+        }
+        
+        for (var i = 0; i < nn.Layers.Count; i++)
+        {
+            var beforeLayer = layers[i];
+            var layer = nn.Layers[i];
+
+            for (var ni = 0; ni < layer.Size(); ni++)
+            {
+                Assert.That(Math.Abs(beforeLayer.Neurons[ni].Bias - layer.Neurons[ni].Bias) < 0.1);
+
+                for (var j = 0; j < beforeLayer.Neurons[ni].Weights.Count; j++)
+                {
+                    Assert.That(double.Abs(beforeLayer.Neurons[ni].Weights[j] - layer.Neurons[ni].Weights[j]) < 0.1);
+                }
+            }
+        }
+        
+        File.Delete(NN_NAME);
+        File.Delete(dataFile);
     }
 
     private class TestActivationFunction : ActivationFunctionBase
