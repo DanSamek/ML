@@ -239,10 +239,9 @@ public partial class NeuralNetwork
     /// </summary>
     public void Train(TrainingOptions trainingOptions)
     {
-        const int MAX_ITEMS_IN_QUEUE = 100; // TODO make it more dynamic based on data sizes and user memory ?
-        
         ArgumentNullException.ThrowIfNull(_lossFunction);
         
+        var maxItemsInQueue = trainingOptions.NumberOfThreads * 5;
         var (threads, workers) = RunWorkers(trainingOptions.NumberOfThreads);
         var totalLines = _dataLoader.CountLines();
         InitOptimizers();
@@ -267,7 +266,7 @@ public partial class NeuralNetwork
                     if (currentBatchSize >= trainingOptions.BatchSize)
                         break;
 
-                    while (_queue.Count >= MAX_ITEMS_IN_QUEUE)
+                    while (_queue.Count >= maxItemsInQueue)
                         _freeSpaceInQueueEvent.WaitOne();
                     
                     var item = _dataLoader.GetNext();
