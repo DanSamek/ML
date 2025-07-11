@@ -4,25 +4,43 @@ namespace ML.NeuralNetwork.Loader;
 
 public class DataLoader
 {
-    private readonly Func<string, TrainingItem> _dataConverter;
+    /// <summary>
+    /// Record for data loading from file.
+    /// </summary>
+    /// <param name="Line">Line from file.</param>
+    /// <param name="Input">Array for input -- what will be forwarded in neural network.</param>
+    /// <param name="Output">Array for output -- values for error calculations.</param>
+    public record LoadContext(string Line, double[] Input, double[] Output);
+    
+    private readonly Action<LoadContext> _dataConverter;
     private readonly string _dataSource;
     private StreamReader? _streamReader;
     private readonly TrainingItem?[] _buffer;
     private readonly SortedSet<int> _notNullIndexes;
     private bool _forceSelected;
-    
+
+    private readonly int _inputLayerSize;
+    private readonly int _outputLayerSize;
     /// <summary>
     /// .Ctor.
     /// </summary>
     /// <param name="dataSource">Path for dataset.</param>
     /// <param name="dataConverter">Custom function that will convert 1 line from dataset to "internal" structure.</param>
+    /// <param name="inputLayerSize">Size of the input layer - (array size)</param>
+    /// <param name="outputLayerSize">Size of the output layer - (array size)</param>
     /// <param name="maxLoadedItemsInMemory">How many items can be loaded in the memory - for randomization.</param>
-    public DataLoader(string dataSource,  Func<string, TrainingItem> dataConverter, int maxLoadedItemsInMemory = 256)
+    public DataLoader(string dataSource, 
+                      Action<LoadContext> dataConverter,
+                      int inputLayerSize, 
+                      int outputLayerSize,
+                      int maxLoadedItemsInMemory = 256)
     {
         _dataConverter = dataConverter;
         _dataSource = dataSource;
         _buffer = new TrainingItem[maxLoadedItemsInMemory];
         _notNullIndexes = [];
+        _inputLayerSize = inputLayerSize;
+        _outputLayerSize = outputLayerSize;
         Reset();
     }
 
@@ -71,8 +89,18 @@ public class DataLoader
             _buffer[i] = GetNextEntry();
     }
 
-    private TrainingItem? GetNextEntry() =>
-        _streamReader!.EndOfStream ? null : _dataConverter(_streamReader.ReadLine()!);
+    private TrainingItem? GetNextEntry()
+    {
+        if (_streamReader!.EndOfStream)
+            return null;
+        
+        var inputLayer = NeuralNetworkArrayPool.Rent(_inputLayerSize, true);
+        var outputLayer = NeuralNetworkArrayPool.Rent(_outputLayerSize, false);
+        _dataConverter(new LoadContext(_streamReader.ReadLine()!, inputLayer, outputLayer));
+
+        var result = new TrainingItem(inputLayer, outputLayer);
+        return result;
+    }
     
     private TrainingItem? ForceSelect()
     {

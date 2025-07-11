@@ -275,7 +275,6 @@ public partial class NeuralNetwork
                         break;
                     
                     _queue.Enqueue(item);
-                    
                     _notEmptyQueueEvent.Set();
                     
                     total++;
