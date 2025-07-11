@@ -1,5 +1,4 @@
 using NUnit.Framework;
-
 namespace ML.NeuralNetwork.Loader;
 
 [TestFixture]
@@ -30,7 +29,7 @@ public class DataLoaderTests
         };
         
         var fileName = NeuralNetworkTestBase.CreateFile(data);
-        var dataLoader = new DataLoader(fileName, item => NeuralNetworkTestBase.Parse(item, 2), maxLoadedInMemory);
+        var dataLoader = new DataLoader(fileName, context => NeuralNetworkTestBase.Parse(context, 2), 2, 1, maxLoadedInMemory);
 
         while (true)
         {
@@ -38,10 +37,14 @@ public class DataLoaderTests
             if (item is null)
                 break;
 
-            item.Input.Add(item.Expected[0]);
-            var found = data.Find(x => x.SequenceEqual(item.Input));
+            var inputAsList = item.Input.ToList();
+            inputAsList.Add(item.Expected[0]);
+            var found = data.Find(x => x.SequenceEqual(inputAsList));
             Assert.That(found, Is.Not.Null);
+            
+            NeuralNetworkArrayPool.Return(item);
             data.Remove(found!);
+            
         }
         File.Delete(fileName);
         Assert.That(data.Count == 0);

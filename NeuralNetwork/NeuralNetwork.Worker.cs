@@ -72,7 +72,8 @@ public partial class NeuralNetwork
                 
                 _trainingLossLock.Exit();
                 
-                // Don't backpropagate items from validation datasets. 
+                // Don't backpropagate items from validation datasets.
+                NeuralNetworkArrayPool.Return(item);
                 if (item.Validation)
                     continue;
                 
@@ -80,13 +81,9 @@ public partial class NeuralNetwork
             }
         }
 
-        internal void ClearGradients()
-        {
-            (WeightGradients, BiasGradients) =  CreateArraysForGradients(_network);
-            GC.Collect();
-        }
+        internal void ClearGradients()  => (WeightGradients, BiasGradients) =  CreateArraysForGradients(_network);
         
-        private void CalculateNeuronGradients(List<double> expected)
+        private void CalculateNeuronGradients(double[] expected)
         {
             var outputLayer = _network.OutputLayer;
             
@@ -153,7 +150,7 @@ public partial class NeuralNetwork
             }
         }
         
-        private void Forward(List<double> data)
+        private void Forward(double[] data)
         {
             ResetForwardContext();
         

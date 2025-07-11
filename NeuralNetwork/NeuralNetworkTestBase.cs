@@ -1,4 +1,5 @@
 using System.Text;
+using ML.NeuralNetwork.Loader;
 
 namespace ML.NeuralNetwork;
 
@@ -27,16 +28,12 @@ public static class NeuralNetworkTestBase
     }
     
     
-    public static NeuralNetworkHelper.TrainingItem Parse(string line, int inputSize)
+    public static void Parse(DataLoader.LoadContext context, int inputSize)
     {
-        var splitLine = line.Split(" ");
-        
-        var input = new List<double>();
-        for (var i = 0; i < inputSize; i++)
-            input.Add(double.Parse(splitLine[i]));
-        
-        List<double> expected = [double.Parse(splitLine[^1])];
-        var trainingItem = new NeuralNetworkHelper.TrainingItem(input, expected);
-        return trainingItem;
+        var splitLine = context.Line.Split(" ");
+        for (var i = 0; i < inputSize; i++) 
+            context.Input[i] = double.Parse(splitLine[i]);
+
+        context.Output[0] = double.Parse(splitLine[^1]);
     }
 }

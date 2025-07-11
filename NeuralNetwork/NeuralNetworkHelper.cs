@@ -32,7 +32,7 @@ public static class NeuralNetworkHelper
     public static double Scale(double max, double q) => max / q;
     
     
-    public record TrainingItem(List<double> Input, List<double> Expected, bool Validation = false);
+    public record TrainingItem(double[] Input, double[] Expected, bool Validation = false);
     public record ForwardResult(List<double> Output, List<double> Expected);
 
 }

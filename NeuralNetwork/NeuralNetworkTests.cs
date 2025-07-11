@@ -67,7 +67,7 @@ public class NeuralNetworkTests
             .AddLayer(3, typeof(TestFunction2))
             .AddLayer(1, typeof(TestFunction2))
             .SetLossFunction(typeof(MAE))
-            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2))) 
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1)) 
             .Build();
         
         nn.InitializeRandom();
@@ -128,8 +128,8 @@ public class NeuralNetworkTests
             .AddLayer(3, typeof(TestFunction2))
             .AddLayer(1, typeof(TestFunction2))
             .SetLossFunction(typeof(MAE))
-            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2)))
-            .SetValidationDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2)))
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1))
+            .SetValidationDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1))
             .SetOutputReceiver(reciever)
             .UseQuantization([8, 8, 8])
             .Build();
@@ -249,7 +249,7 @@ public class NeuralNetworkTests
                 .AddLayer(hiddenLayer2)
                 .AddLayer(outputLayer)
                 .SetLossFunction(typeof(MAE))
-                .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3)))
+                .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3),3,1))
                 .SetOutputReceiver(new SimpleForwardReceiver());
             
         nn.Train(new TrainingOptions());
@@ -337,7 +337,7 @@ public class NeuralNetworkTests
             .AddLayer(hiddenLayer2)
             .AddLayer(outputLayer)
             .SetLossFunction(typeof(MSE))
-            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3)))
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3),3,1))
             .SetOutputReceiver(new ConsoleReceiver())
             .SetOptimizer(new Adam
             {
@@ -400,8 +400,8 @@ public class NeuralNetworkTests
             .AddLayer(2, typeof(RELU))
             .AddLayer(1, typeof(Identity))
             .SetLossFunction(typeof(MSE))
-            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3)))
-            .SetValidationDataLoader(new DataLoader(validationDataFile, item => NeuralNetworkTestBase.Parse(item, 3)))
+            .SetDataLoader(new DataLoader(dataFile, context => NeuralNetworkTestBase.Parse(context, 3), 3,1))
+            .SetValidationDataLoader(new DataLoader(validationDataFile, context => NeuralNetworkTestBase.Parse(context, 3), 3, 1))
             .SetOutputReceiver(new ConsoleReceiver())
             .Build();
 
@@ -422,7 +422,7 @@ public class NeuralNetworkTests
     {
         private int counter = 0;
         public override double RandomWeight(double inWeightCount, double outWeightCount)
-        => Random.Shared.NextDouble() * Random.Shared.Next(-3, 3);
+        => Random.Shared.NextDouble() * Random.Shared.Next(3) * (counter++ % 2 == 0 ? 1 : -1);
     }
     
     [Test]
@@ -452,19 +452,20 @@ public class NeuralNetworkTests
 
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
-            .AddLayer(2, typeof(TanhX))
+            .AddLayer(3, typeof(Tanh))
             .AddLayer(1, typeof(TanhX))
             .SetLossFunction(typeof(MSE))
-            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2)))
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2 ,1))
+            .SetValidationDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2 ,1))
             .SetOutputReceiver(new ConsoleReceiver())
-            .SetOptimizer(simple) // Current loss: 2.7499540607822275  -> Current loss: 0.007501592326721322 [its about luck with weights random initialization.]
+            .SetOptimizer(adam) // Current loss: 2.7499540607822275  -> Current loss: 0.007501592326721322 [its about luck with weights random initialization.]
             .Build();
         
         nn.InitializeRandom();
         var options = new TrainingOptions
         {
             NumEpochs = 10000,
-            BatchSize = 4
+            BatchSize = 1
         };
         
         nn.Train(options);
