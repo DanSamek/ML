@@ -43,6 +43,7 @@ public partial class NeuralNetwork
                     if (_network._waitingWorkers >= totalWorkers)
                     {
                         _network._emptyQueueEvent.Set();
+                        _network._freeSpaceInQueueEvent.Set();
                     }
 
                     _network._notEmptyQueueEvent.WaitOne();
