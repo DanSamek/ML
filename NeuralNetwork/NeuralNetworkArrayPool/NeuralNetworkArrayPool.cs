@@ -19,9 +19,18 @@ public static class NeuralNetworkArrayPool
 
     public static void Return(TrainingItem trainingItem)
     {
+        Clear(trainingItem.Input);
         _pool[Index(true)].Enqueue(trainingItem.Input);
+        
+        Clear(trainingItem.Expected);
         _pool[Index(false)].Enqueue(trainingItem.Expected);
     }
 
+    private static void Clear(double[] array)
+    {
+        for (var i = 0; i < array.Length; i++)
+            array[i] = 0;
+    }
+    
     private static int Index(bool input) => input ? 1 : 0;
 }

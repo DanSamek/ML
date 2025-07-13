@@ -7,6 +7,10 @@ public class TrainingOptions
 
     public int NumberOfThreads { get; set; } = 1;
     
+    public int LRStep { get; set; } = 10;
+    
+    public int SaveRate { get; set; } = 1;
+    
     public TrainingOptions(int numEpochs, int batchSize, int numberOfThreads)
     {
         NumEpochs = numEpochs;
