@@ -7,8 +7,7 @@ public class Tanh : ActivationFunctionBase
 
     public override double RandomWeight(double inWeightCount, double outWeightCount)
     {
-        var result =  1 / double.Sqrt(inWeightCount) * Random.Shared.NextDouble();
-        var sign = Random.Shared.Next(0,1) == 0 ? -1 : 1;
-        return result * sign;
+        var a = Math.Sqrt(6) / Math.Sqrt(inWeightCount + outWeightCount);
+        return Random.Shared.NextDouble() * 2 * a - a;
     }
 }

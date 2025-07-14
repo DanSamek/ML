@@ -28,7 +28,7 @@ public static class NeuralNetworkTestBase
     }
     
     
-    public static void Parse(DataLoader.LoadContext context, int inputSize)
+    public static void Parse(IDataLoader.LoadContext context, int inputSize)
     {
         var splitLine = context.Line.Split(" ");
         for (var i = 0; i < inputSize; i++) 

@@ -15,8 +15,8 @@ public partial class NeuralNetwork
     
     private LossFunctionBase _lossFunction = null!;
     private IOutputReceiver? _outputReceiver;
-    private DataLoader _dataLoader = null!;
-    private DataLoader? _validationDataLoader;
+    private IDataLoader _dataLoader = null!;
+    private IDataLoader? _validationDataLoader;
     private IOptimizer[] _optimizers = null!;
     private List<double> _scales = [];
     
@@ -133,18 +133,18 @@ public partial class NeuralNetwork
     /// <summary>
     /// Sets data loader that will be used for training.
     /// </summary>
-    public NeuralNetwork SetDataLoader(DataLoader dataLoader)
+    public NeuralNetwork SetDataLoader(IDataLoader shuffleDataLoader)
     {
-        _dataLoader = dataLoader;
+        _dataLoader = shuffleDataLoader;
         return this;
     }
     
     /// <summary>
     /// Sets data loader that will be used for validation-error.
     /// </summary>
-    public NeuralNetwork SetValidationDataLoader(DataLoader dataLoader)
+    public NeuralNetwork SetValidationDataLoader(IDataLoader shuffleDataLoader)
     {
-        _validationDataLoader = dataLoader;
+        _validationDataLoader = shuffleDataLoader;
         return this;
     }
     
@@ -212,7 +212,7 @@ public partial class NeuralNetwork
             var neurons = Layers[i].Neurons;
             foreach (var neuron in neurons)
             {
-                neuron.Bias = 0; // TODO
+                neuron.Bias = 0;
 
                 for (var j = 0; j < neuron.Weights.Count; j++)
                     neuron.Weights[j] = RandomDouble(i + 1);
@@ -251,6 +251,7 @@ public partial class NeuralNetwork
             _dataLoader.Reset();
             
             var total = 0;
+            var totalLoss = 0.0;
             while (total < totalLines)
             {
                 foreach (var worker in workers)
@@ -283,7 +284,8 @@ public partial class NeuralNetwork
                 while (!_queue.IsEmpty)
                     _emptyQueueEvent.WaitOne();
                 
-                _outputReceiver?.TrainingLoss(_trainingLoss);
+                _outputReceiver?.TrainingLoss(_trainingLoss / currentBatchSize);
+                totalLoss += _trainingLoss;
                 
                 if (_trainingLoss == 0)
                     continue;
@@ -293,6 +295,7 @@ public partial class NeuralNetwork
                 UpdateWeights(weightGradients, biasGradients);
             }
             
+            _outputReceiver?.EpochCompleted(epoch, totalLoss / totalLines);
             CalculateValidationLoss();
         }
         
@@ -306,7 +309,8 @@ public partial class NeuralNetwork
         
         _validationDataLoader?.Reset();
         _validationLoss = 0;
-        
+
+        var itemCount = 0;
         while (true)
         {
             var item = _validationDataLoader?.GetNext();
@@ -319,12 +323,13 @@ public partial class NeuralNetwork
             };
             _queue.Enqueue(item);
             _notEmptyQueueEvent.Set();
+            itemCount++;
         }
         
         while (!_queue.IsEmpty)
             _emptyQueueEvent.WaitOne();
         
-        _outputReceiver?.ValidationLoss(_validationLoss);
+        _outputReceiver?.ValidationLoss(_validationLoss / itemCount);
     }
     
     private void UpdateTrainingLoss(double loss) => _trainingLoss += loss;

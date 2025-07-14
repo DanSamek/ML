@@ -14,4 +14,10 @@ public interface IOutputReceiver
     /// Receives a validation loss.
     /// </summary>
     public void ValidationLoss(double loss);
+
+
+    /// <summary>
+    /// Receives a completed epoch. 
+    /// </summary>
+    public void EpochCompleted(int epoch, double totalLoss);
 }

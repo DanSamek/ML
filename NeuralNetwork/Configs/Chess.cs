@@ -5,37 +5,19 @@ using ML.NeuralNetwork.Optimizers;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 
+using static ML.NeuralNetwork.Loader.IDataLoader;
+
 namespace ML.NeuralNetwork.Configs;
 
 public static class Chess
 {
     public static double WDL = 0.75;
-    
     private static int Scale => 400;
     private static int InputLayerSize => 768;
     private static int OutputLayerSize => 1;
     
     private static double Sigmoid_fn(double x) => 1.0 / (1.0 + Math.Exp(-x));
     
-    private class ChessSigmoid : ActivationFunctionBase
-    {
-        public override double Value(double cp) => Sigmoid_fn(cp / Scale);
-    
-        public override double Derivative(double cp)
-        {
-            var exp = Math.Exp(cp / Scale);
-            var result = exp / (Scale * Math.Pow(exp + 1, 2));
-            return result;
-        }
-
-        public override double RandomWeight(double inWeightCount, double outWeightCount)
-        {
-            var result = double.Sqrt(6 / (inWeightCount + outWeightCount)) * Random.Shared.NextDouble();
-            var sign = Random.Shared.Next(0,2) == 0 ? -1 : 1;
-            return result * sign;
-        }
-    }
-
     private static readonly Dictionary<char, int> PIECE_TYPES = new()
     {
         {'p', 0},
@@ -46,7 +28,7 @@ public static class Chess
         {'k', 5}
     };
     
-    public static void ParseChessPosition(DataLoader.LoadContext context)
+    public static void ParseChessPosition(LoadContext context)
     {
         var fen = context.Line;
         var index = 0;
@@ -100,12 +82,12 @@ public static class Chess
         var nn = new NeuralNetwork()
             .AddInputLayer(InputLayerSize)
             .AddLayer(hiddenLayerSize, typeof(RELU))
-            .AddLayer(1, typeof(ChessSigmoid))
-            .SetDataLoader(new DataLoader(dataPath, ParseChessPosition, InputLayerSize, OutputLayerSize,100_000))
+            .AddLayer(1, typeof(Sigmoid))
+            .SetDataLoader(new DataLoader(dataPath, ParseChessPosition, InputLayerSize, OutputLayerSize))
             .SetLossFunction(typeof(MSE))
-            .SetOptimizer(new AdamW
+            .SetOptimizer(new Adam()
             {
-                Configuration = new AdamW.Config()
+                Configuration = new Adam.Config()
             })
             .UseQuantization([128, 64])
             .Build();
@@ -121,7 +103,7 @@ public class ChessTest
     [Test]
     public void ParseFenTest()
     {
-        var context = new DataLoader.LoadContext("2R5/2K5/8/8/1k6/5Q2/8/8 w - - 3 72 | -31860 | 0.0", new double[768], new double[1]);
+        var context = new LoadContext("2R5/2K5/8/8/1k6/5Q2/8/8 w - - 3 72 | -31860 | 0.0", new double[768], new double[1]);
         var expectedInputFeatures = new double[768];
         expectedInputFeatures[194] = 1; // R
         expectedInputFeatures[330] = 1; // K
@@ -135,7 +117,7 @@ public class ChessTest
     [Test]
     public void ParseFenTest2()
     {
-        var context = new DataLoader.LoadContext("1rb1kb1r/2ppqp1p/1pn2np1/p3p3/2P1P1P1/1P1PBN1B/P4P1P/RN1QK2R w KQk - 2 9 | 130 | 1.0", new double[768], new double[1]);
+        var context = new IDataLoader.LoadContext("1rb1kb1r/2ppqp1p/1pn2np1/p3p3/2P1P1P1/1P1PBN1B/P4P1P/RN1QK2R w KQk - 2 9 | 130 | 1.0", new double[768], new double[1]);
         var expectedInputFeatures = new double[768];
         // White pawns.
         SetFeature(0,0,34);

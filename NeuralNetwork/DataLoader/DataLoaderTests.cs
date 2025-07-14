@@ -5,12 +5,17 @@ namespace ML.NeuralNetwork.Loader;
 public class DataLoaderTests
 {
     [Repeat(10000, true)]
-    [TestCase(1)]
-    [TestCase(2)]
-    [TestCase(4)]
-    [TestCase(8)]
-    [TestCase(16)]
-    public void ReadTest(int maxLoadedInMemory)
+    [TestCase(1, true)]
+    [TestCase(2, true)]
+    [TestCase(4, true)]
+    [TestCase(8, true)]
+    [TestCase(16, true)]
+    [TestCase(1, false)]
+    [TestCase(2, false)]
+    [TestCase(4, false)]
+    [TestCase(8, false)]
+    [TestCase(16, false)]
+    public void ReadTest(int maxLoadedInMemory, bool shuffle)
     {
         var data = new List<List<double>>
         {
@@ -29,7 +34,10 @@ public class DataLoaderTests
         };
         
         var fileName = NeuralNetworkTestBase.CreateFile(data);
-        var dataLoader = new DataLoader(fileName, context => NeuralNetworkTestBase.Parse(context, 2), 2, 1, maxLoadedInMemory);
+
+        IDataLoader dataLoader = shuffle 
+            ? new ShuffleDataLoader(fileName, context => NeuralNetworkTestBase.Parse(context, 2), 2, 1, maxLoadedInMemory) 
+            : new DataLoader(fileName, context => NeuralNetworkTestBase.Parse(context, 2), 2, 1);
 
         while (true)
         {

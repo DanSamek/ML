@@ -67,7 +67,7 @@ public class NeuralNetworkTests
             .AddLayer(3, typeof(TestFunction2))
             .AddLayer(1, typeof(TestFunction2))
             .SetLossFunction(typeof(MAE))
-            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1)) 
+            .SetDataLoader(new ShuffleDataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1)) 
             .Build();
         
         nn.InitializeRandom();
@@ -111,6 +111,8 @@ public class NeuralNetworkTests
         public void TrainingLoss(double loss)  => LastTrainingLoss = loss;
 
         public void ValidationLoss(double loss) => LastValidationLoss = loss;
+        public void EpochCompleted(int epoch, double totalLoss) { }
+        public void EpochCompleted(int epoch) { }
     }
     
     /// <summary>
@@ -128,8 +130,8 @@ public class NeuralNetworkTests
             .AddLayer(3, typeof(TestFunction2))
             .AddLayer(1, typeof(TestFunction2))
             .SetLossFunction(typeof(MAE))
-            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1))
-            .SetValidationDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1))
+            .SetDataLoader(new ShuffleDataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1))
+            .SetValidationDataLoader(new ShuffleDataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1))
             .SetOutputReceiver(reciever)
             .UseQuantization([8, 8, 8])
             .Build();
@@ -186,10 +188,10 @@ public class NeuralNetworkTests
             Assert.That(loss == 0);
         }
 
-        public void ValidationLoss(double loss)
-        {
-            throw new NotImplementedException();
-        }
+        public void ValidationLoss(double loss) { }
+        public void EpochCompleted(int epoch, double totalLoss) { }
+
+        public void EpochCompleted(int epoch) { }
     }
     
     
@@ -249,7 +251,7 @@ public class NeuralNetworkTests
                 .AddLayer(hiddenLayer2)
                 .AddLayer(outputLayer)
                 .SetLossFunction(typeof(MAE))
-                .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3),3,1))
+                .SetDataLoader(new ShuffleDataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3),3,1))
                 .SetOutputReceiver(new SimpleForwardReceiver());
             
         nn.Train(new TrainingOptions());
@@ -337,7 +339,7 @@ public class NeuralNetworkTests
             .AddLayer(hiddenLayer2)
             .AddLayer(outputLayer)
             .SetLossFunction(typeof(MSE))
-            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3),3,1))
+            .SetDataLoader(new ShuffleDataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 3),3,1))
             .SetOutputReceiver(new ConsoleReceiver())
             .SetOptimizer(new Adam
             {
@@ -400,8 +402,8 @@ public class NeuralNetworkTests
             .AddLayer(2, typeof(RELU))
             .AddLayer(1, typeof(Identity))
             .SetLossFunction(typeof(MSE))
-            .SetDataLoader(new DataLoader(dataFile, context => NeuralNetworkTestBase.Parse(context, 3), 3,1))
-            .SetValidationDataLoader(new DataLoader(validationDataFile, context => NeuralNetworkTestBase.Parse(context, 3), 3, 1))
+            .SetDataLoader(new ShuffleDataLoader(dataFile, context => NeuralNetworkTestBase.Parse(context, 3), 3,1))
+            .SetValidationDataLoader(new ShuffleDataLoader(validationDataFile, context => NeuralNetworkTestBase.Parse(context, 3), 3, 1))
             .SetOutputReceiver(new ConsoleReceiver())
             .Build();
 
@@ -422,7 +424,7 @@ public class NeuralNetworkTests
     {
         private int counter = 0;
         public override double RandomWeight(double inWeightCount, double outWeightCount)
-        => Random.Shared.NextDouble() * Random.Shared.Next(3) * (counter++ % 2 == 0 ? 1 : -1);
+        => Random.Shared.NextDouble() *  ((counter++ % 2) == 0 ? 1 : -1);
     }
     
     [Test]
@@ -430,10 +432,10 @@ public class NeuralNetworkTests
     {
         var dataFile = NeuralNetworkTestBase.CreateFile(new List<List<double>>
         {
-            new() { 0, 0, 0 },
+            new() { 0, 0, -1  },
             new() { 0, 1, 1 },
             new() { 1, 0, 1 },
-            new() { 1, 1, 0 },
+            new() { 1, 1, -1 }
         });
 
         var adam = new Adam
@@ -452,20 +454,20 @@ public class NeuralNetworkTests
 
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
-            .AddLayer(3, typeof(Tanh))
+            .AddLayer(3, typeof(TanhX))
             .AddLayer(1, typeof(TanhX))
             .SetLossFunction(typeof(MSE))
             .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2 ,1))
             .SetValidationDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2 ,1))
             .SetOutputReceiver(new ConsoleReceiver())
-            .SetOptimizer(adam) // Current loss: 2.7499540607822275  -> Current loss: 0.007501592326721322 [its about luck with weights random initialization.]
+            .SetOptimizer(adam) 
             .Build();
         
         nn.InitializeRandom();
         var options = new TrainingOptions
         {
             NumEpochs = 10000,
-            BatchSize = 1
+            BatchSize = 4
         };
         
         nn.Train(options);

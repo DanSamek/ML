@@ -10,8 +10,8 @@ class Program
         var options = new TrainingOptions
         {
             NumberOfThreads = 8,
-            NumEpochs = 50,
-            BatchSize = 16_384
+            NumEpochs = 20,
+            BatchSize = 128 
         };
         nn.Train(options);
     }
