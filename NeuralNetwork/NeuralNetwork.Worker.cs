@@ -74,11 +74,14 @@ public partial class NeuralNetwork
                 _trainingLossLock.Exit();
                 
                 // Don't backpropagate items from validation datasets.
-                NeuralNetworkArrayPool.Return(item);
                 if (item.Validation)
+                {
+                    NeuralNetworkArrayPool.Return(item);
                     continue;
+                }
                 
                 Backpropagate(item);
+                NeuralNetworkArrayPool.Return(item);
             }
         }
 
@@ -117,7 +120,6 @@ public partial class NeuralNetwork
                     sum *= currentLayer.ActivationFunction.Derivative(_forwardContext[i].Sums[j]);
                     _neuronGradients[i][j] = sum;
                 }
-                
             }
         }
 

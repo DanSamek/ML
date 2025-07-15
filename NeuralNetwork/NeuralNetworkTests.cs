@@ -419,46 +419,110 @@ public class NeuralNetworkTests
         File.Delete(dataFile);
     }
 
-
-    private class TanhX : Tanh
+    
+    private class MSE2 : LossFunctionBase
     {
-        private int counter = 0;
-        public override double RandomWeight(double inWeightCount, double outWeightCount)
-        => Random.Shared.NextDouble() *  ((counter++ % 2) == 0 ? 1 : -1);
+        public double Value(double current, double expected) => Math.Pow(expected - current, 2) / 2.0;
+
+        public double Derivative(double current, double expected) => expected - current;
     }
+    
+    [Test]
+    public void XORTrainingTest2()
+    {
+        var dataFile = NeuralNetworkTestBase.CreateFile(new List<List<double>>
+        {
+            new() { 1, 1, 0 },
+            new() { 0, 1, 1 },
+            new() { 1, 0, 1 },
+            new() { 0, 0, 0 }
+        });
+        
+
+        var simple = new Simple
+        {
+            Configuration = new Simple.Config
+            {
+                LearningRate = 1
+            }
+        };
+        
+        var inputLayer = new InputLayer(2)
+        {
+            Features =
+            [
+                new Feature { Weights = [0.30006336, -0.64114065, 0.01708628 ] },
+                new Feature { Weights = [-0.99758489, -0.37674861, -0.7799422] }
+            ]
+        };
+        
+        var hiddenLayer1 = new Layer (3, typeof(Sigmoid))
+        {
+            Neurons = 
+            [
+                new Neuron { Bias = 0, Weights = [-0.85391348] },
+                new Neuron { Bias = 0, Weights = [ 0.04359306] },
+                new Neuron { Bias = 0, Weights = [ -0.78181754] }
+            ]
+        };
+
+        var outputLayer = new Layer(1, typeof(Sigmoid))
+        {
+            Neurons = 
+            [
+                new Neuron { Bias = 0, Weights =  [] },
+            ]
+        };
+
+        var nn = new NeuralNetwork()
+            .AddInputLayer(inputLayer)
+            .AddLayer(hiddenLayer1)
+            .AddLayer(outputLayer)
+            .SetLossFunction(typeof(MSE2))
+            .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2), 2, 1))
+            .SetOutputReceiver(new ConsoleReceiver());
+        
+        var options = new TrainingOptions
+        {
+            NumEpochs = 1,
+            BatchSize = 4
+        };
+        
+        nn.Train(options);
+        File.Delete(dataFile);
+    }
+
     
     [Test]
     public void XORTrainingTest()
     {
         var dataFile = NeuralNetworkTestBase.CreateFile(new List<List<double>>
         {
-            new() { 0, 0, -1  },
+            new() { 1, 1, 0 },
             new() { 0, 1, 1 },
             new() { 1, 0, 1 },
-            new() { 1, 1, -1 }
+            new() { 0, 0, 0 }
         });
-
+        
+        var simple = new Simple
+        {
+            Configuration = new Simple.Config
+            {
+                LearningRate = 0.01
+            }
+        };
+        
         var adam = new Adam
         {
             Configuration = new Adam.Config()
         };
 
-        var simple = new Simple
-        {
-            Configuration = new Simple.Config
-            {
-                LearningRate = 0.1
-            }
-        };
-        
-
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
-            .AddLayer(3, typeof(TanhX))
-            .AddLayer(1, typeof(TanhX))
+            .AddLayer(3, typeof(Tanh))
+            .AddLayer(1, typeof(Sigmoid))
             .SetLossFunction(typeof(MSE))
             .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2 ,1))
-            .SetValidationDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2 ,1))
             .SetOutputReceiver(new ConsoleReceiver())
             .SetOptimizer(adam) 
             .Build();
