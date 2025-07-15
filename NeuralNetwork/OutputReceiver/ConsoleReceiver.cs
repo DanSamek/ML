@@ -1,5 +1,3 @@
-using NUnit.Framework;
-
 namespace ML.NeuralNetwork.OutputReceiver;
 
 public class ConsoleReceiver : IOutputReceiver

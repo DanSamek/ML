@@ -26,6 +26,18 @@ public static class NeuralNetworkHelper
         
         return (weightGradients, biasGradients);
     }
+
+    public static void ClearArraysForGradients(List<double[,]> weightGradients, List<double[]> biasGradients)
+    {
+        foreach (var matrix in weightGradients)
+            for (var i = 0; i < matrix.GetLength(0); i++)
+                for (var j = 0; j < matrix.GetLength(1); j++)
+                    matrix[i, j] = 0.0;
+        
+        foreach (var vector in biasGradients)
+            for (var i = 0; i < vector.Length; i++)
+                vector[i] = 0.0;
+    }
     
     // q_val = round(value / scale), scale = max(|w|) / scale.
     public static int QuantizedValue(double value, double scale) => (int)double.Round(value / scale);

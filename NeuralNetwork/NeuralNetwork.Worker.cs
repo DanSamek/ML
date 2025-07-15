@@ -85,7 +85,7 @@ public partial class NeuralNetwork
             }
         }
 
-        internal void ClearGradients()  => (WeightGradients, BiasGradients) =  CreateArraysForGradients(_network);
+        internal void ClearGradients() => ClearArraysForGradients(WeightGradients, BiasGradients);
         
         private void CalculateNeuronGradients(double[] expected)
         {

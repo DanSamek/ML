@@ -85,9 +85,9 @@ public static class Chess
             .AddLayer(1, typeof(Sigmoid))
             .SetDataLoader(new DataLoader(dataPath, ParseChessPosition, InputLayerSize, OutputLayerSize))
             .SetLossFunction(typeof(MSE))
-            .SetOptimizer(new Adam()
+            .SetOptimizer(new AdamW
             {
-                Configuration = new Adam.Config()
+                Configuration = new AdamW.Config()
             })
             .UseQuantization([128, 64])
             .Build();

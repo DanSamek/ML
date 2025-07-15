@@ -246,6 +246,8 @@ public partial class NeuralNetwork
         var totalLines = _dataLoader.CountLines();
         InitOptimizers();
         
+        var (weightGradients, biasGradients) = CreateArraysForGradients(this);
+        
         for (var epoch = 1; epoch <= trainingOptions.NumEpochs; epoch++)
         {
             _dataLoader.Reset();
@@ -257,7 +259,7 @@ public partial class NeuralNetwork
                 foreach (var worker in workers)
                     worker.ClearGradients();
                 
-                var (weightGradients, biasGradients) = CreateArraysForGradients(this);
+                ClearArraysForGradients(weightGradients, biasGradients);
                 
                 _trainingLoss = 0;
                 var currentBatchSize = 0;
@@ -297,6 +299,11 @@ public partial class NeuralNetwork
             
             _outputReceiver?.EpochCompleted(epoch, totalLoss / totalLines);
             CalculateValidationLoss();
+
+            if (epoch % trainingOptions.SaveRate == 0)
+            {
+                Save(trainingOptions.NnNameGetter(epoch));
+            }
         }
         
         StopWorkers(threads);

@@ -504,14 +504,6 @@ public class NeuralNetworkTests
             new() { 0, 0, 0 }
         });
         
-        var simple = new Simple
-        {
-            Configuration = new Simple.Config
-            {
-                LearningRate = 0.01
-            }
-        };
-        
         var adam = new Adam
         {
             Configuration = new Adam.Config()
@@ -519,7 +511,7 @@ public class NeuralNetworkTests
 
         var nn = new NeuralNetwork()
             .AddInputLayer(2)
-            .AddLayer(3, typeof(Tanh))
+            .AddLayer(2, typeof(Tanh))
             .AddLayer(1, typeof(Sigmoid))
             .SetLossFunction(typeof(MSE))
             .SetDataLoader(new DataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2 ,1))
