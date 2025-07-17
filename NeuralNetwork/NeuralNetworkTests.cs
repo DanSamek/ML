@@ -75,7 +75,7 @@ public class NeuralNetworkTests
         var (inputLayer, layers) = CopyNet(nn);
         
         // Save & load
-        nn.Save(NN_NAME);
+        nn.Save(NN_NAME, false);
         nn.Load(NN_NAME);
         
         Assert.That(layers != nn.Layers);
@@ -115,65 +115,6 @@ public class NeuralNetworkTests
         public void EpochCompleted(int epoch) { }
     }
     
-    /// <summary>
-    /// Load & save test with quantized weights.
-    /// </summary>
-    [Test]
-    [Repeat(1000, true)]
-    public void IOQuantizedTest()
-    {
-        var dataFile = NeuralNetworkTestBase.CreateFile(_IOTestData);
-        var reciever = new IOQuantReceiver();
-        var nn = new NeuralNetwork()
-            .AddInputLayer(2)
-            .AddLayer(2, typeof(TestFunction2))
-            .AddLayer(3, typeof(TestFunction2))
-            .AddLayer(1, typeof(TestFunction2))
-            .SetLossFunction(typeof(MAE))
-            .SetDataLoader(new ShuffleDataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1))
-            .SetValidationDataLoader(new ShuffleDataLoader(dataFile, item => NeuralNetworkTestBase.Parse(item, 2),2,1))
-            .SetOutputReceiver(reciever)
-            .UseQuantization([8, 8, 8])
-            .Build();
-        
-        nn.InitializeRandom();
-        
-        var (inputLayer, layers) = CopyNet(nn);
-        
-        nn.Save(NN_NAME);
-        nn.Load(NN_NAME);
-        
-        Assert.That(layers != nn.Layers);
-        Assert.That(inputLayer != nn.InputLayer);
-        
-        // Validate
-        for (var i = 0; i < nn.InputLayer.Size(); i++){
-            for (var j = 0; j < nn.InputLayer.Features[i].Weights.Count; j++)
-            {
-                Assert.That(double.Abs(nn.InputLayer.Features[i].Weights[j] - inputLayer.Features[i].Weights[j]) < 0.1);   
-            }
-        }
-        
-        for (var i = 0; i < nn.Layers.Count; i++)
-        {
-            var beforeLayer = layers[i];
-            var layer = nn.Layers[i];
-
-            for (var ni = 0; ni < layer.Size(); ni++)
-            {
-                Assert.That(Math.Abs(beforeLayer.Neurons[ni].Bias - layer.Neurons[ni].Bias) < 0.1);
-
-                for (var j = 0; j < beforeLayer.Neurons[ni].Weights.Count; j++)
-                {
-                    Assert.That(double.Abs(beforeLayer.Neurons[ni].Weights[j] - layer.Neurons[ni].Weights[j]) < 0.1);
-                }
-            }
-        }
-        
-        File.Delete(NN_NAME);
-        File.Delete(dataFile);
-    }
-
     private class TestActivationFunction : ActivationFunctionBase
     {
         public override double Value(double x) => x / 2;

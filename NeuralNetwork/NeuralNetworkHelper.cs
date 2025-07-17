@@ -40,7 +40,16 @@ public static class NeuralNetworkHelper
     }
     
     // q_val = round(value / scale), scale = max(|w|) / scale.
-    public static int QuantizedValue(double value, double scale) => (int)double.Round(value / scale);
+    public static int QuantizedValue(double value, double scale, int quant)
+    {
+        var min = -quant / 2;
+        var max = quant / 2 - 1;
+        var result = Math.Clamp((int)double.Round(value / scale), min, max);
+
+        Console.WriteLine(result);
+        
+        return result;
+    }
     public static double Scale(double max, double q) => max / q;
     
     

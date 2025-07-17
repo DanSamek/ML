@@ -18,7 +18,7 @@ public partial class NeuralNetwork
     private IDataLoader _dataLoader = null!;
     private IDataLoader? _validationDataLoader;
     private IOptimizer[] _optimizers = null!;
-    private List<double> _scales = [];
+    private List<int> _scales = [];
     
     private readonly AutoResetEvent _notEmptyQueueEvent = new (false);
     private readonly AutoResetEvent _freeSpaceInQueueEvent = new (false);
@@ -162,7 +162,7 @@ public partial class NeuralNetwork
     /// If quantization will be used when it saves/loads neural network.
     /// Weight quantization per layer is used.
     /// </summary>
-    public NeuralNetwork UseQuantization(List<double> scales)
+    public NeuralNetwork UseQuantization(List<int> scales)
     {
         _scales = scales;
         return this;
@@ -176,10 +176,9 @@ public partial class NeuralNetwork
     ///     neuron bias, neuron weights.
     /// </summary>
     /// <param name="path">Path where it should be saved.</param>
-    public void Save(string path)
+    public void Save(string path, bool quantized)
     {
-        var useQuantization = _scales.Count != 0;
-        if (useQuantization) SaveQuantized(path);
+        if (quantized) SaveQuantized(path);
         else SaveNormal(path);
     }
 
@@ -188,12 +187,7 @@ public partial class NeuralNetwork
     /// For format <see cref="Save"/>
     /// </summary>
     /// <param name="path">Path of the file where are the weights.</param>
-    public void Load(string path)
-    {
-        var useQuantization = _scales.Count != 0;
-        if (useQuantization) LoadQuantized(path);
-        else LoadNormal(path);
-    }
+    public void Load(string path, bool quantized = false) => LoadNormal(path, quantized);
     
     /// <summary>
     /// Initializes neural network with random weights.
@@ -302,7 +296,8 @@ public partial class NeuralNetwork
 
             if (epoch % trainingOptions.SaveRate == 0)
             {
-                Save(trainingOptions.NnNameGetter(epoch));
+                Save(trainingOptions.NnNameGetter(epoch, false), false);
+                Save(trainingOptions.NnNameGetter(epoch, true), true);
             }
         }
         

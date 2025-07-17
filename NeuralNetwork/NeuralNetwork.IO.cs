@@ -6,47 +6,31 @@ public partial class NeuralNetwork
 {
     private void SaveQuantized(string path)
     {
+        if (_scales.Count == 0) return;
+        
         using var binaryWriter = new BinaryWriter(File.Open(path, FileMode.Create));
         Span<double> calculatedScales = stackalloc double[_scales.Count];
         CalculateScales(calculatedScales);
-        
-        foreach (var weight in InputLayer.Features.SelectMany(feature => feature.Weights))
-            binaryWriter.Write(QuantizedValue(weight, calculatedScales[0]));
-        
-        for (var i = 0; i < Layers.Count; i++)
-        {
-            foreach (var neuron in Layers[i].Neurons)
-            {
-                binaryWriter.Write(QuantizedValue(neuron.Bias, calculatedScales[i]));
-                foreach (var weight in neuron.Weights)
-                    binaryWriter.Write(QuantizedValue(weight, calculatedScales[i + 1]));
-            }
-        }
-    }
-    
-    private void LoadQuantized(string path)
-    {
-        using var binaryReader = new BinaryReader(File.Open(path, FileMode.Open));
-        Span<double> calculatedScales = stackalloc double[_scales.Count];
-        CalculateScales(calculatedScales);
-        
-        foreach (var feature in InputLayer.Features)
-        {
-            for (var i = 0; i < feature.Weights.Count; i++)
-                feature.Weights[i] = binaryReader.ReadInt32() * calculatedScales[0];
-        }
 
+        foreach (var weight in InputLayer.Features.SelectMany(feature => feature.Weights))
+        {
+            var value = QuantizedValue(weight, calculatedScales[0], _scales[0]);
+            binaryWriter.Write(value);
+        }
+        
         for (var i = 0; i < Layers.Count; i++)
         {
             foreach (var neuron in Layers[i].Neurons)
             {
-                neuron.Bias = binaryReader.ReadInt32() * calculatedScales[i];
-                for (var j = 0; j < neuron.Weights.Count; j++)
-                    neuron.Weights[j] = binaryReader.ReadInt32() * calculatedScales[i + 1];
+                var value = QuantizedValue(neuron.Bias, calculatedScales[i], _scales[i]);
+                binaryWriter.Write(value);
+                foreach (var weight in neuron.Weights)
+                {
+                    value = QuantizedValue(weight, calculatedScales[i + 1], _scales[i + 1]);
+                    binaryWriter.Write(value);
+                }
             }
         }
-        
-        binaryReader.Close();
     }
 
     private void SaveNormal(string path)
@@ -64,20 +48,20 @@ public partial class NeuralNetwork
         binaryStream.Close();
     }
 
-    private void LoadNormal(string path)
+    private void LoadNormal(string path, bool quantized = false)
     {
         using var binaryStream = new BinaryReader(File.Open(path, FileMode.Open));
         foreach (var feature in InputLayer.Features)
         {
             for (var i = 0; i < feature.Weights.Count; i++)
-                feature.Weights[i] = binaryStream.ReadDouble();
+                feature.Weights[i] = quantized ? binaryStream.ReadInt32() : binaryStream.ReadDouble();
         }
         
         foreach (var neuron in Layers.SelectMany(l => l.Neurons))
         {
-            neuron.Bias = binaryStream.ReadDouble();
+            neuron.Bias =  quantized ? binaryStream.ReadInt32() : binaryStream.ReadDouble();
             for (var i = 0; i < neuron.Weights.Count; i++)
-                neuron.Weights[i] = binaryStream.ReadDouble();
+                neuron.Weights[i] = quantized ? binaryStream.ReadInt32() : binaryStream.ReadDouble();
         }
         
         binaryStream.Close();

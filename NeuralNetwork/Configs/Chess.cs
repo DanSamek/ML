@@ -77,7 +77,7 @@ public static class Chess
         static int GetIndex(int color, int piece, int square) => (color * 6 + piece) * 64 + square;
     }
     
-    public static NeuralNetwork Create(int hiddenLayerSize, string dataPath)
+    public static NeuralNetwork Create(int hiddenLayerSize, string dataPath, string? netPath = null)
     {
         var nn = new NeuralNetwork()
             .AddInputLayer(InputLayerSize)
@@ -89,10 +89,14 @@ public static class Chess
             {
                 Configuration = new AdamW.Config()
             })
-            .UseQuantization([256, 128])
+            .UseQuantization([255, 64])
             .Build();
         
-        nn.InitializeRandom();
+        if (netPath is not null)  
+            nn.Load(netPath);
+        else
+            nn.InitializeRandom();
+        
         return nn;
     }
 }
