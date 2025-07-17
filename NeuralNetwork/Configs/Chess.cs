@@ -89,7 +89,7 @@ public static class Chess
             {
                 Configuration = new AdamW.Config()
             })
-            .UseQuantization([128, 64])
+            .UseQuantization([256, 128])
             .Build();
         
         nn.InitializeRandom();
@@ -168,7 +168,7 @@ public class ChessTest
         Chess.ParseChessPosition(context);
         CollectionAssert.AreEqual(expectedInputFeatures, context.Input);
         
-        return;
+        return; 
         void SetFeature(int color, int piece, int square) => expectedInputFeatures[GetIndex(color, piece, square)] = 1;
         static int GetIndex(int color, int piece, int square) => (color * 6 + piece) * 64 + square;
     }
